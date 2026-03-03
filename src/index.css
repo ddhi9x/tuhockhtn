@@ -1,0 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons+Outlined');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 160 30% 97%;
+    --foreground: 200 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 200 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 25% 15%;
+
+    --primary: 168 55% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 160 25% 93%;
+    --secondary-foreground: 168 55% 30%;
+
+    --muted: 160 15% 94%;
+    --muted-foreground: 200 10% 45%;
+
+    --accent: 168 45% 90%;
+    --accent-foreground: 168 55% 25%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 160 20% 90%;
+    --input: 160 20% 88%;
+    --ring: 168 55% 38%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 200 15% 35%;
+    --sidebar-primary: 168 55% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 168 45% 94%;
+    --sidebar-accent-foreground: 168 55% 25%;
+    --sidebar-border: 160 20% 92%;
+    --sidebar-ring: 168 55% 38%;
+
+    /* Custom tokens */
+    --hero-gradient: linear-gradient(135deg, hsl(168 55% 38%), hsl(175 50% 45%));
+    --streak-gradient: linear-gradient(135deg, hsl(15 90% 55%), hsl(30 95% 55%));
+    --success: 145 60% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 210 80% 55%;
+    --info-foreground: 0 0% 100%;
+
+    --grade-6: 145 55% 45%;
+    --grade-7: 210 60% 50%;
+    --grade-8: 260 50% 55%;
+    --grade-9: 38 80% 50%;
+  }
+
+  .dark {
+    --background: 200 25% 8%;
+    --foreground: 160 15% 92%;
+    --card: 200 20% 12%;
+    --card-foreground: 160 15% 92%;
+    --popover: 200 20% 12%;
+    --popover-foreground: 160 15% 92%;
+    --primary: 168 55% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 200 20% 18%;
+    --secondary-foreground: 160 15% 85%;
+    --muted: 200 15% 18%;
+    --muted-foreground: 200 10% 55%;
+    --accent: 200 20% 18%;
+    --accent-foreground: 168 55% 60%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 200 15% 20%;
+    --input: 200 15% 20%;
+    --ring: 168 55% 45%;
+    --sidebar-background: 200 20% 10%;
+    --sidebar-foreground: 160 10% 75%;
+    --sidebar-primary: 168 55% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 200 15% 15%;
+    --sidebar-accent-foreground: 168 55% 60%;
+    --sidebar-border: 200 15% 18%;
+    --sidebar-ring: 168 55% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'Be Vietnam Pro', sans-serif;
+  }
+}
+
+@layer utilities {
+  .hero-gradient {
+    background: var(--hero-gradient);
+  }
+
+  .streak-gradient {
+    background: var(--streak-gradient);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+  }
+}
+
+.material-icons-outlined {
+  font-family: 'Material Icons Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+}

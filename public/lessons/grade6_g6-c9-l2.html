@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KHTN 6: Bài 47 - Một số dạng năng lượng | Cấu trúc 5512</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.4s ease-out forwards;
+        }
+
+        @keyframes scale-in {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .animate-scale-in {
+            animation: scale-in 0.3s ease-out forwards;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px);
+            }
+
+            50% {
+                transform: translateX(5px);
+            }
+
+            75% {
+                transform: translateX(-5px);
+            }
+        }
+
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .tab-btn {
+            position: relative;
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: #2563eb;
+            border-radius: 3px 3px 0 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- SVG Icons Components ---
+        const IconPlay = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>;
+        const IconBookOpen = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>;
+        const IconPenTool = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 19 7-7 3 3-7 7-3-3z"></path><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="m2 2 7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>;
+        const IconCheckSquare = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>;
+        const IconStar = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>;
+        const IconActivity = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
+        const IconFlame = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>;
+        const IconZap2 = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>;
+        const IconSun = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg>;
+        const IconVideo = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>;
+
+        // --- Data ---
+        const energyTypes = [
+            { id: 1, name: 'Động năng', definition: 'Năng lượng mà một vật có được do nó đang chuyển động. Vật chuyển động càng nhanh và khối lượng vật càng lớn thì động năng càng lớn.', source: 'Các vật đang chuyển động.', example: 'Ô tô đang chạy trên đường, một cơn gió thổi, dòng nước chảy, mũi tên đang bay...', color: 'bg-blue-50 text-blue-800 border-blue-200', icon: <IconActivity /> },
+            { id: 2, name: 'Thế năng hấp dẫn', definition: 'Năng lượng mà một vật có được khi nó ở trên cao so với mặt đất (hoặc so với một vị trí được chọn làm mốc). Vật ở càng cao và khối lượng càng lớn thì thế năng hấp dẫn càng lớn.', source: 'Vật ở một độ cao nhất định.', example: 'Quả táo đang ở trên cành cây, máy bay đang bay trên bầu trời, dòng nước ở đập thủy điện...', color: 'bg-green-50 text-green-800 border-green-200', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5l-5-3-5 3M19 19H5" /></svg> },
+            { id: 3, name: 'Thế năng đàn hồi', definition: 'Năng lượng mà vật có được khi nó bị biến dạng đàn hồi (như bị nén, kéo dãn hay uốn cong). Độ biến dạng càng lớn thì thế năng đàn hồi càng lớn.', source: 'Các vật bị biến dạng đàn hồi.', example: 'Lò xo bị nén/dãn, dây cung đang được kéo căng, đệm cao su khi bị lún...', color: 'bg-purple-50 text-purple-800 border-purple-200', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12c2 0 2-4 4-4s2 8 4 8 2-4 4-4 2-4 4-4" /></svg> },
+            { id: 4, name: 'Hóa năng (Năng lượng hóa học)', definition: 'Năng lượng lưu trữ trong các liên kết hóa học giữa các nguyên tử, phân tử. Nó được giải phóng khi xảy ra phản ứng hóa học (ví dụ quá trình đốt cháy, tiêu hóa).', source: 'Phản ứng hóa học.', example: 'Năng lượng dự trữ trong cục pin, bình ắc quy, xăng dầu, thực phẩm (thức ăn), thuốc nổ...', color: 'bg-orange-50 text-orange-800 border-orange-200', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 2v7.31M14 9.31V2M8.5 2h7M14 9.31l4.47 4.47A2 2 0 0 1 19 15.2V20a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-4.8a2 2 0 0 1 .53-1.42L10 9.31" /></svg> },
+            { id: 5, name: 'Điện năng (Năng lượng điện)', definition: 'Năng lượng gắn liền với dòng điện (sự dịch chuyển có hướng của các hạt mang điện). Đây là dạng năng lượng dễ chuyển hóa thành các dạng khác nhất.', source: 'Nguồn điện (pin, máy phát điện, pin mặt trời...).', example: 'Dòng điện chạy trong dây dẫn giúp các thiết bị điện như tivi, tủ lạnh, quạt... hoạt động.', color: 'bg-yellow-50 text-yellow-800 border-yellow-200', icon: <IconZap2 /> },
+            { id: 6, name: 'Quang năng (Năng lượng ánh sáng)', definition: 'Năng lượng do ánh sáng mang theo. Nhờ có quang năng mà mắt ta có thể nhìn thấy mọi vật và thực vật có thể quang hợp.', source: 'Các nguồn sáng (Mặt trời, ngọn lửa, đèn...).', example: 'Ánh sáng Mặt trời, ánh sáng từ bóng đèn điện đang sáng, con đom đóm...', color: 'bg-amber-50 text-amber-800 border-amber-200', icon: <IconSun /> },
+            { id: 7, name: 'Năng lượng âm', definition: 'Năng lượng do các vật dao động phát ra và lan truyền trong môi trường (rắn, lỏng, khí) dưới dạng sóng âm.', source: 'Các nguồn âm (vật dao động).', example: 'Tiếng sấm sét, tiếng nói, tiếng đàn, tiếng trống...', color: 'bg-indigo-50 text-indigo-800 border-indigo-200', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" /></svg> },
+            { id: 8, name: 'Nhiệt năng (Năng lượng nhiệt)', definition: 'Năng lượng liên quan đến chuyển động nhiệt của các hạt cấu tạo nên vật. Vật có nhiệt độ càng cao thì nhiệt năng càng lớn.', source: 'Các nguồn nhiệt.', example: 'Ngọn lửa đang cháy, Mặt trời sưởi ấm, thanh sắt nung đỏ, nước sôi...', color: 'bg-red-50 text-red-800 border-red-200', icon: <IconFlame /> }
+        ];
+
+        const quizQuestions = [
+            { question: "1. Năng lượng dự trữ trong viên pin, ắc quy, hay thức ăn được gọi là dạng năng lượng nào?", options: ["Điện năng", "Hóa năng", "Nhiệt năng", "Động năng"], answer: 1, explanation: "Hóa năng là năng lượng lưu trữ trong các liên kết hóa học, được giải phóng qua phản ứng hóa học." },
+            { question: "2. Một chiếc máy bay đang bay trên bầu trời có mang những dạng năng lượng nào?", options: ["Chỉ có động năng", "Chỉ có thế năng hấp dẫn", "Động năng và thế năng hấp dẫn", "Thế năng đàn hồi và hóa năng"], answer: 2, explanation: "Máy bay đang chuyển động nên có Động năng, đồng thời nó ở trên cao nên có Thế năng hấp dẫn." },
+            { question: "3. Vật nào sau đây ĐANG có thế năng đàn hồi?", options: ["Hòn đá nằm trên mặt đất", "Sợi dây cao su bị kéo căng", "Bóng đèn đang sáng", "Chiếc xe máy đang chạy"], answer: 1, explanation: "Thế năng đàn hồi có được khi vật bị biến dạng đàn hồi. Sợi dây bị kéo căng thỏa mãn điều này." },
+            { question: "4. Khi ta áp tay vào cổ và nói to, ta cảm nhận được sự rung động. Điều này chứng tỏ âm thanh mang năng lượng. Dạng năng lượng đó gọi là gì?", options: ["Năng lượng âm", "Năng lượng nhiệt", "Năng lượng ánh sáng", "Hóa năng"], answer: 0, explanation: "Âm thanh được tạo ra do sự dao động và lan truyền mang theo Năng lượng âm." },
+            { question: "5. Bóng đèn sợi đốt khi hoạt động bình thường, điện năng chuyển hóa chủ yếu thành các dạng năng lượng nào?", options: ["Quang năng và động năng", "Quang năng và nhiệt năng", "Nhiệt năng và hóa năng", "Hóa năng và quang năng"], answer: 1, explanation: "Bóng đèn sáng (phát ra Quang năng) và sờ vào thấy nóng (tỏa ra Nhiệt năng)." },
+            { question: "6. Khi ném một quả bóng lên cao, dạng năng lượng nào của quả bóng TĂNG DẦN?", options: ["Động năng", "Thế năng hấp dẫn", "Hóa năng", "Nhiệt năng"], answer: 1, explanation: "Khi bóng bay lên cao, độ cao so với mặt đất tăng dần nên Thế năng hấp dẫn tăng dần." },
+            { question: "7. Nhiên liệu như than đá, dầu mỏ dự trữ dạng năng lượng nào?", options: ["Quang năng", "Thế năng hấp dẫn", "Hóa năng", "Nhiệt năng"], answer: 2, explanation: "Than đá, dầu mỏ là nhiên liệu hóa thạch, chứa năng lượng hóa học (Hóa năng)." },
+            { question: "8. Quạt điện hoạt động dựa trên sự chuyển hóa chủ yếu từ điện năng thành dạng năng lượng nào?", options: ["Động năng", "Nhiệt năng", "Quang năng", "Hóa năng"], answer: 0, explanation: "Mục đích chính của quạt là làm cánh quạt quay, nên điện năng chuyển hóa chủ yếu thành Động năng." },
+            { question: "9. Ánh sáng mặt trời chiếu vào pin mặt trời trên mái nhà sẽ chuyển hóa thành dạng năng lượng nào để sử dụng?", options: ["Động năng", "Thế năng đàn hồi", "Điện năng", "Năng lượng âm"], answer: 2, explanation: "Pin quang điện có khả năng chuyển đổi trực tiếp Quang năng thành Điện năng." },
+            { question: "10. Năng lượng hao phí thường xuất hiện dưới dạng nào khi các máy móc (ví dụ: động cơ ô tô) hoạt động?", options: ["Quang năng", "Nhiệt năng", "Thế năng", "Hóa năng"], answer: 1, explanation: "Hầu hết các máy móc đều có ma sát và tỏa nhiệt (Nhiệt năng hao phí)." }
+        ];
+
+        // Thay thế link ảnh bằng hình vẽ SVG để không bao giờ bị lỗi do mạng chặn
+        const imageScenarios = [
+            {
+                id: 1, title: 'Nhà máy Thủy điện Sông Đà',
+                svg: <svg viewBox="0 0 400 250" className="w-full h-full bg-sky-100"><path d="M 0 150 Q 200 150 400 150 L 400 250 L 0 250 Z" fill="#0ea5e9" /><path d="M 50 250 L 150 50 L 250 50 L 350 250 Z" fill="#94a3b8" /><rect x="180" y="80" width="40" height="170" fill="#38bdf8" /><text x="200" y="40" fill="#334155" fontSize="20" fontWeight="bold" textAnchor="middle">Thủy Điện</text></svg>,
+                correctEnergies: [1, 2, 5], explanation: 'Nước ở đập cao có Thế năng hấp dẫn. Khi xả xuống, dòng nước mang Động năng làm quay tua-bin để tạo ra Điện năng.'
+            },
+            {
+                id: 2, title: 'Cánh đồng Phong điện',
+                svg: <svg viewBox="0 0 400 250" className="w-full h-full bg-blue-50"><path d="M 0 200 Q 100 150 200 200 T 400 200 L 400 250 L 0 250 Z" fill="#22c55e" /><rect x="195" y="100" width="10" height="100" fill="#cbd5e1" /><circle cx="200" cy="100" r="5" fill="#475569" /><path d="M 200 100 L 200 40 L 210 100 Z" fill="#f1f5f9" /><path d="M 200 100 L 150 130 L 190 110 Z" fill="#f1f5f9" /><path d="M 200 100 L 250 130 L 210 110 Z" fill="#f1f5f9" /><text x="200" y="30" fill="#334155" fontSize="20" fontWeight="bold" textAnchor="middle">Phong Điện</text></svg>,
+                correctEnergies: [1, 5], explanation: 'Gió thổi mang Động năng làm quay cánh quạt. Chuyển động quay này tạo ra Điện năng.'
+            },
+            {
+                id: 3, title: 'Mầm cây đang lớn',
+                svg: <svg viewBox="0 0 400 250" className="w-full h-full bg-orange-50"><rect x="0" y="200" width="400" height="50" fill="#78350f" /><path d="M 200 200 Q 180 150 200 100" stroke="#16a34a" strokeWidth="8" fill="none" /><path d="M 200 150 Q 150 150 170 120 Q 200 120 200 150" fill="#16a34a" /><path d="M 200 130 Q 250 120 230 90 Q 200 100 200 130" fill="#16a34a" /><circle cx="80" cy="60" r="30" fill="#eab308" /><path d="M 80 10 v10 M 80 100 v10 M 30 60 h10 M 120 60 h10 M 45 25 l10 10 M 115 95 l10 10 M 115 25 l-10 10 M 45 95 l10 -10" stroke="#eab308" strokeWidth="4" /><text x="280" y="50" fill="#334155" fontSize="20" fontWeight="bold" textAnchor="middle">Mầm Cây</text></svg>,
+                correctEnergies: [6, 4], explanation: 'Lá cây hấp thụ Quang năng từ Mặt trời để quang hợp, tạo ra chất dinh dưỡng (Hóa năng).'
+            },
+            {
+                id: 4, title: 'Sấm sét trong giông',
+                svg: <svg viewBox="0 0 400 250" className="w-full h-full bg-slate-900"><path d="M 100 80 Q 150 30 200 80 Q 250 30 300 80 Q 350 100 300 150 Q 200 180 100 150 Q 50 100 100 80 Z" fill="#475569" /><path d="M 180 130 L 160 190 L 190 190 L 170 250 L 220 170 L 190 170 Z" fill="#fde047" /><text x="200" y="40" fill="#f8fafc" fontSize="20" fontWeight="bold" textAnchor="middle">Sấm Sét</text></svg>,
+                correctEnergies: [5, 6, 7, 8], explanation: 'Sấm sét là sự phóng điện (Điện năng), phát sáng (Quang năng), tỏa nhiệt (Nhiệt năng) và gây tiếng nổ (Năng lượng âm).'
+            }
+        ];
+
+        // Hàm xáo trộn mảng (Fisher-Yates) đảm bảo độ ngẫu nhiên cao
+        const shuffleArray = (array) => {
+            let newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        };
+
+        // --- BỘ CÔNG CỤ TRÒ CHƠI ---
+
+        // Trò chơi: Trải nghiệm chạm
+        const TouchGame = () => {
+            const [revealed, setRevealed] = useState({});
+            const interactives = [
+                { id: 'i1', title: 'Áp tay vào cổ khi nói to', action: 'Nói "Aaaa"', effect: 'Cổ họng rung động', energy: 'Năng lượng âm', color: 'indigo' },
+                { id: 'i2', title: 'Bật công tắc đèn bàn', action: 'Bật đèn', effect: 'Đèn phát sáng & nóng lên', energy: 'Quang & Nhiệt năng', color: 'amber' },
+                { id: 'i3', title: 'Gió thổi vào chong chóng', action: 'Thổi gió', effect: 'Chong chóng quay', energy: 'Động năng', color: 'blue' }
+            ];
+            const handleReveal = (id) => setRevealed(prev => ({ ...prev, [id]: true }));
+
+            return (
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100 p-6 md:p-8 mt-6">
+                    <h3 className="text-xl font-bold text-blue-800 mb-6 text-center">Tương tác: Chạm để nhận biết</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {interactives.map(item => (
+                            <div key={item.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 text-center flex flex-col h-full">
+                                <h4 className="font-bold text-gray-700 mb-4 h-12 flex items-center justify-center">{item.title}</h4>
+                                {!revealed[item.id] ? (
+                                    <button onClick={() => handleReveal(item.id)} className={`mx-auto mb-4 bg-${item.color}-500 hover:bg-${item.color}-600 text-white w-24 h-24 rounded-full flex items-center justify-center font-bold shadow-lg transition-transform hover:scale-105 active:scale-95`}>
+                                        {item.action}
+                                    </button>
+                                ) : (
+                                    <div className="animate-scale-in flex-grow flex flex-col justify-center mb-4">
+                                        <div className="bg-gray-100 rounded-lg p-3 mb-3 border-l-4 border-gray-400">
+                                            <span className="block text-xs uppercase text-gray-500 font-bold mb-1">Biểu hiện</span>
+                                            <span className="font-medium text-gray-800">{item.effect}</span>
+                                        </div>
+                                        <div className={`bg-${item.color}-100 rounded-lg p-3 border-l-4 border-${item.color}-500`}>
+                                            <span className="block text-xs uppercase text-gray-500 font-bold mb-1">Kết luận</span>
+                                            <span className={`font-bold text-${item.color}-700`}>{item.energy}</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // Trò chơi: Phiếu học tập 1 (Đã trả lại nguyên vẹn và xóa câu hướng dẫn theo yêu cầu)
+        const ImageAnalysisGame = () => {
+            const [currentImgIdx, setCurrentImgIdx] = useState(0);
+            const [selectedEnergies, setSelectedEnergies] = useState([]);
+            const [isChecked, setIsChecked] = useState(false);
+            const scenario = imageScenarios[currentImgIdx];
+
+            const toggleEnergy = (id) => {
+                if (isChecked) return;
+                setSelectedEnergies(prev => prev.includes(id) ? prev.filter(eId => eId !== id) : [...prev, id]);
+            };
+            const handleCheck = () => setIsChecked(true);
+            const handleNext = () => {
+                setSelectedEnergies([]); setIsChecked(false);
+                setCurrentImgIdx(prev => (prev + 1) % imageScenarios.length);
+            };
+            const isFullyCorrect = isChecked && selectedEnergies.length === scenario.correctEnergies.length && selectedEnergies.every(e => scenario.correctEnergies.includes(e));
+
+            return (
+                <div className="mt-6 bg-teal-50/30 p-6 md:p-8 rounded-xl border border-teal-200 shadow-sm">
+                    <h3 className="text-xl font-bold text-teal-800 mb-6 flex items-center justify-between">
+                        <span>Phiếu học tập 1</span>
+                        <span className="bg-teal-100 text-teal-800 px-3 py-1 rounded-full text-sm font-bold">Hình {currentImgIdx + 1}/{imageScenarios.length}</span>
+                    </h3>
+
+                    <div className="flex flex-col md:flex-row gap-6">
+                        <div className="w-full md:w-1/2">
+                            <div className="rounded-xl overflow-hidden shadow-sm border-2 border-white relative aspect-video bg-gray-200 flex items-center justify-center">
+                                {scenario.svg}
+                                <div className="absolute bottom-0 w-full bg-black/60 text-white p-2 backdrop-blur-sm"><h3 className="font-bold text-center">{scenario.title}</h3></div>
+                            </div>
+                        </div>
+                        <div className="w-full md:w-1/2 flex flex-col">
+                            <div className="grid grid-cols-2 gap-2 mb-4">
+                                {energyTypes.map(energy => {
+                                    const isSelected = selectedEnergies.includes(energy.id);
+                                    let btnClass = "border-gray-200 text-gray-600 bg-white hover:bg-teal-50";
+                                    if (isChecked) {
+                                        const isCorrectAns = scenario.correctEnergies.includes(energy.id);
+                                        if (isCorrectAns && isSelected) btnClass = "border-green-500 bg-green-100 text-green-800 font-bold";
+                                        else if (isCorrectAns && !isSelected) btnClass = "border-yellow-400 bg-yellow-50 text-yellow-700 border-dashed border-2";
+                                        else if (!isCorrectAns && isSelected) btnClass = "border-red-400 bg-red-50 text-red-700";
+                                        else btnClass = "border-gray-200 bg-white text-gray-400 opacity-50";
+                                    } else if (isSelected) {
+                                        btnClass = "border-teal-500 bg-teal-50 text-teal-800 font-bold";
+                                    }
+                                    return (
+                                        <button key={energy.id} onClick={() => toggleEnergy(energy.id)} disabled={isChecked} className={`px-2 py-2 rounded-lg border-2 text-xs text-left transition-all ${btnClass}`}>
+                                            {energy.name}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {!isChecked ? (
+                                <button onClick={handleCheck} disabled={selectedEnergies.length === 0} className="mt-auto bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 text-white font-bold py-3 px-4 rounded-lg transition-colors w-full shadow">Kiểm tra đáp án</button>
+                            ) : (
+                                <div className="mt-auto animate-fade-in">
+                                    <div className={`p-4 rounded-lg mb-4 border text-sm ${isFullyCorrect ? 'bg-green-50 border-green-200 text-green-800' : 'bg-orange-50 border-orange-200 text-orange-800'}`}>
+                                        <strong>{isFullyCorrect ? '🎉 Tuyệt vời!' : '💡 Gợi ý:'}</strong> {scenario.explanation}
+                                    </div>
+                                    <button onClick={handleNext} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors w-full shadow">Hình tiếp theo ➔</button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Trò chơi: Phiếu học tập 2 (Ghép thẻ)
+        const MatchingGame = () => {
+            const initialMatches = [
+                { id: 'm1', left: 'Hóa năng', right: 'Viên pin chờ sử dụng', matchId: 'A' },
+                { id: 'm2', left: 'Thế năng hấp dẫn', right: 'Quả bưởi trên cành', matchId: 'B' },
+                { id: 'm3', left: 'Động năng', right: 'Cánh quạt đang quay', matchId: 'C' },
+                { id: 'm4', left: 'Thế năng đàn hồi', right: 'Lò xo bị nén', matchId: 'D' },
+                { id: 'm5', left: 'Năng lượng âm', right: 'Tiếng sấm sét', matchId: 'E' },
+                { id: 'm6', left: 'Nhiệt năng', right: 'Bếp gas đang cháy', matchId: 'F' }
+            ];
+
+            const [leftItems, setLeftItems] = useState([]);
+            const [rightItems, setRightItems] = useState([]);
+            const [selectedLeft, setSelectedLeft] = useState(null);
+            const [selectedRight, setSelectedRight] = useState(null);
+            const [matchedPairs, setMatchedPairs] = useState([]);
+            const [errorShake, setErrorShake] = useState(false);
+            const [matchCompleted, setMatchCompleted] = useState(false);
+
+            useEffect(() => { initMatch(); }, []);
+
+            const initMatch = () => {
+                // Xáo trộn hoàn toàn độc lập 2 mảng để tăng độ khó
+                setLeftItems(shuffleArray(initialMatches.map(item => ({ id: `l_${item.id}`, text: item.left, matchId: item.matchId }))));
+                setRightItems(shuffleArray(initialMatches.map(item => ({ id: `r_${item.id}`, text: item.right, matchId: item.matchId }))));
+                setMatchedPairs([]); setSelectedLeft(null); setSelectedRight(null); setMatchCompleted(false);
+            };
+
+            useEffect(() => {
+                if (selectedLeft && selectedRight) {
+                    if (selectedLeft.matchId === selectedRight.matchId) {
+                        setMatchedPairs(prev => [...prev, selectedLeft.matchId]);
+                        setSelectedLeft(null); setSelectedRight(null);
+                        if (matchedPairs.length + 1 === initialMatches.length) setTimeout(() => setMatchCompleted(true), 500);
+                    } else {
+                        setErrorShake(true);
+                        setTimeout(() => { setErrorShake(false); setSelectedLeft(null); setSelectedRight(null); }, 500);
+                    }
+                }
+            }, [selectedLeft, selectedRight]);
+
+            return (
+                <div className="mt-6 bg-indigo-50/50 p-6 md:p-8 rounded-xl border border-indigo-200 shadow-sm">
+                    <h3 className="text-xl font-bold text-indigo-800 mb-6">Phiếu học tập 2: Thử thách ghép thẻ</h3>
+                    {matchCompleted ? (
+                        <div className="text-center py-8 bg-green-100 rounded-xl border border-green-200">
+                            <div className="w-16 h-16 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-4"><IconCheckSquare /></div>
+                            <h3 className="text-xl font-bold text-green-700 mb-2">Bạn đã nhớ rất tốt các dạng năng lượng!</h3>
+                            <button onClick={initMatch} className="mt-2 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">Chơi lại</button>
+                        </div>
+                    ) : (
+                        <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${errorShake ? 'animate-shake' : ''}`}>
+                            <div className="space-y-3">
+                                <div className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2 text-center bg-indigo-100 py-2 rounded">Dạng năng lượng</div>
+                                {leftItems.map((item) => {
+                                    const isMatched = matchedPairs.includes(item.matchId);
+                                    const isSelected = selectedLeft?.id === item.id;
+                                    return (
+                                        <button key={item.id} disabled={isMatched} onClick={() => !isMatched && setSelectedLeft(item)}
+                                            className={`w-full p-4 text-left rounded-lg font-medium transition-all border-2 ${isMatched ? 'bg-indigo-100 border-indigo-200 text-indigo-300 opacity-60' : isSelected ? 'bg-purple-50 border-purple-500 text-purple-800 shadow-md transform scale-[1.02]' : 'bg-white border-gray-200 hover:border-purple-300 hover:bg-gray-50 text-gray-700'}`}
+                                        >{item.text}</button>
+                                    );
+                                })}
+                            </div>
+                            <div className="space-y-3">
+                                <div className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-2 text-center bg-blue-100 py-2 rounded">Hiện tượng / Đồ vật</div>
+                                {rightItems.map((item) => {
+                                    const isMatched = matchedPairs.includes(item.matchId);
+                                    const isSelected = selectedRight?.id === item.id;
+                                    return (
+                                        <button key={item.id} disabled={isMatched} onClick={() => !isMatched && setSelectedRight(item)}
+                                            className={`w-full p-4 text-left rounded-lg font-medium transition-all border-2 ${isMatched ? 'bg-indigo-100 border-indigo-200 text-indigo-300 opacity-60' : isSelected ? 'bg-blue-50 border-blue-500 text-blue-800 shadow-md transform scale-[1.02]' : 'bg-white border-gray-200 hover:border-blue-300 hover:bg-gray-50 text-gray-700'}`}
+                                        >{item.text}</button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- CÁC HOẠT ĐỘNG (5512) ---
+
+        // HĐ 1: KHỞI ĐỘNG
+        const Act1_WarmUp = ({ onComplete }) => (
+            <div className="animate-fade-in space-y-6">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4 border-l-4 border-blue-500 pl-4">Hoạt động 1: Khởi động</h2>
+                    <p className="text-gray-600 leading-relaxed text-lg mb-6">Chào mừng các em đến với thế giới của Năng Lượng! Hãy cùng xem một đoạn video ngắn và trải nghiệm một số hoạt động để nhận biết năng lượng quanh ta nhé.</p>
+
+                    {/* Phần Video - Sử dụng Link dạng Thumbnail để chống lỗi 153 */}
+                    <div className="mb-8 p-1 rounded-2xl bg-gradient-to-r from-blue-400 to-indigo-500">
+                        <div className="bg-white p-4 rounded-xl">
+                            <h3 className="text-lg font-bold text-blue-800 mb-3 flex items-center gap-2">
+                                <IconVideo /> Video mở đầu: Vai trò của Năng lượng
+                            </h3>
+
+                            <a href="https://www.youtube.com/watch?v=M9b44Sdbz50" target="_blank" rel="noreferrer" className="block relative w-full overflow-hidden rounded-lg shadow-sm bg-black group cursor-pointer" style={{ paddingTop: '56.25%' }}>
+                                <img
+                                    src="https://img.youtube.com/vi/M9b44Sdbz50/maxresdefault.jpg"
+                                    onError={(e) => { e.target.src = 'https://img.youtube.com/vi/M9b44Sdbz50/hqdefault.jpg'; }}
+                                    alt="Video thumbnail"
+                                    className="absolute top-0 left-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="bg-red-600 text-white rounded-full p-4 shadow-lg group-hover:scale-110 transition-transform">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                                    </div>
+                                </div>
+                            </a>
+
+                            <div className="mt-4 text-center">
+                                <p className="text-sm text-gray-600">
+                                    <em>(Nhấn vào nút Play phía trên để mở video trên YouTube một cách mượt mà nhất)</em>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <TouchGame />
+                    <div className="mt-8 text-center border-t border-gray-200 pt-8">
+                        <button onClick={() => onComplete('warmup')} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105">Đã xem xong & Đi tiếp ➔</button>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // HĐ 2: HÌNH THÀNH KIẾN THỨC
+        const Act2_Discovery = ({ onComplete }) => (
+            <div className="animate-fade-in space-y-8">
+                {/* Phần I */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4 border-l-4 border-teal-500 pl-4">I. Nhận biết năng lượng</h2>
+                    <p className="text-gray-600 text-lg mb-2">
+                        Từ hoạt động khởi động, ta thấy: Năng lượng không thể nhìn thấy bằng mắt thường. Nhưng ta có thể <strong>nhận biết</strong> sự tồn tại của nó thông qua <strong>biểu hiện</strong> (ánh sáng, âm thanh, nhiệt độ...) và <strong>tác dụng</strong> (làm vật chuyển động, biến dạng...) của nó lên vạn vật.
+                    </p>
+                </div>
+
+                {/* Phần II */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
+                    <h2 className="text-2xl font-bold text-gray-800 mb-6 border-l-4 border-indigo-500 pl-4">II. Các dạng năng lượng</h2>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-2">
+                        {energyTypes.map(energy => (
+                            <div key={energy.id} className={`p-5 rounded-xl border-2 shadow-sm ${energy.color}`}>
+                                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-black/10">
+                                    <div className="p-2 bg-white/70 rounded-lg shadow-sm">{energy.icon}</div>
+                                    <h3 className="font-bold text-xl">{energy.name}</h3>
+                                </div>
+                                <div className="space-y-3 bg-white/60 p-4 rounded-lg text-gray-800 text-sm h-full">
+                                    <p className="leading-relaxed">
+                                        <span className="font-bold block text-xs uppercase tracking-wider mb-1 opacity-70">📖 Định nghĩa</span>
+                                        <span className="font-medium text-base">{energy.definition}</span>
+                                    </p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                        <div className="bg-white/50 p-2 rounded">
+                                            <span className="font-bold block text-xs uppercase tracking-wider mb-1 opacity-70">💡 Nguồn phát</span>
+                                            <span>{energy.source}</span>
+                                        </div>
+                                        <div className="bg-white/50 p-2 rounded">
+                                            <span className="font-bold block text-xs uppercase tracking-wider mb-1 opacity-70">🔍 Ví dụ</span>
+                                            <span>{energy.example}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Tương tác dính liền với Phần II */}
+                    <ImageAnalysisGame />
+                    <MatchingGame />
+
+                    <div className="mt-8 text-center border-t border-gray-200 pt-8">
+                        <button onClick={() => onComplete('discovery')} className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105">Làm xong & Tới Trắc Nghiệm ➔</button>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // HĐ 3: LUYỆN TẬP (Trắc nghiệm)
+        const Act3_Practice = ({ onComplete }) => {
+            const [currentQ, setCurrentQ] = useState(0);
+            const [selectedOption, setSelectedOption] = useState(null);
+            const [isAnswered, setIsAnswered] = useState(false);
+            const [score, setScore] = useState(0);
+            const [quizCompleted, setQuizCompleted] = useState(false);
+
+            const handleQuizSelect = (idx) => {
+                if (isAnswered) return;
+                setSelectedOption(idx); setIsAnswered(true);
+                if (idx === quizQuestions[currentQ].answer) setScore(prev => prev + 1);
+            };
+            const nextQuestion = () => {
+                if (currentQ < quizQuestions.length - 1) { setCurrentQ(prev => prev + 1); setSelectedOption(null); setIsAnswered(false); }
+                else { setQuizCompleted(true); }
+            };
+            const resetQuiz = () => { setCurrentQ(0); setSelectedOption(null); setIsAnswered(false); setScore(0); setQuizCompleted(false); };
+
+            return (
+                <div className="animate-fade-in space-y-6">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2 border-l-4 border-red-500 pl-4">Hoạt động 3: Luyện tập</h2>
+                        <p className="text-gray-600 mb-8">Trắc nghiệm nhanh 10 câu để hệ thống hóa kiến thức toàn bài.</p>
+
+                        {quizCompleted ? (
+                            <div className="text-center py-10 bg-gray-50 rounded-xl border border-gray-200 shadow-inner">
+                                <div className="text-6xl font-black text-indigo-600 mb-4">{score}/10</div>
+                                <p className="text-lg font-medium mb-6 text-gray-700">Điểm số của bạn!</p>
+                                <button onClick={resetQuiz} className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-lg font-bold transition-colors shadow mb-4">Làm lại bài</button>
+                                <div className="mt-4">
+                                    <button onClick={() => onComplete('practice')} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-full font-bold shadow-lg transition-transform hover:scale-105">Đến phần Vận dụng ➔</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                                <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200">
+                                    <span className="font-bold text-gray-600 bg-white px-4 py-1 rounded-full shadow-sm">Câu hỏi {currentQ + 1}/10</span>
+                                    <span className="text-sm font-bold text-red-500">Điểm hiện tại: {score}</span>
+                                </div>
+                                <h4 className="text-xl font-bold text-gray-800 mb-6">{quizQuestions[currentQ].question}</h4>
+                                <div className="space-y-3">
+                                    {quizQuestions[currentQ].options.map((opt, idx) => {
+                                        let btnClass = "bg-white border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300";
+                                        if (isAnswered) {
+                                            if (idx === quizQuestions[currentQ].answer) btnClass = "bg-green-100 border-green-500 text-green-800 font-bold";
+                                            else if (idx === selectedOption) btnClass = "bg-red-50 border-red-400 text-red-700";
+                                            else btnClass = "bg-gray-50 border-gray-200 text-gray-400 opacity-50";
+                                        }
+                                        return (
+                                            <button key={idx} disabled={isAnswered} onClick={() => handleQuizSelect(idx)}
+                                                className={`w-full text-left p-4 rounded-xl border-2 transition-all flex justify-between items-center shadow-sm ${btnClass}`}
+                                            >
+                                                <span className="text-lg">{String.fromCharCode(65 + idx)}. {opt}</span>
+                                                {isAnswered && idx === quizQuestions[currentQ].answer && <IconCheckSquare />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {isAnswered && (
+                                    <div className="mt-6 animate-fade-in">
+                                        <div className={`p-5 rounded-xl mb-6 text-base ${selectedOption === quizQuestions[currentQ].answer ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-orange-50 text-orange-800 border border-orange-200'}`}>
+                                            <strong className="block mb-1 text-lg">{selectedOption === quizQuestions[currentQ].answer ? '✓ Chính xác! ' : '✗ Chưa chính xác! '}</strong>
+                                            {quizQuestions[currentQ].explanation}
+                                        </div>
+                                        <button onClick={nextQuestion} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold text-lg transition-colors shadow-md">
+                                            {currentQ < quizQuestions.length - 1 ? 'Chuyển sang Câu tiếp theo ➔' : 'Xem Bảng Điểm'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // HĐ 4: VẬN DỤNG (Bài tập SGK)
+        const Act4_Application = ({ onComplete }) => {
+            const exercises = [
+                {
+                    id: 1, question: "Câu 1 (SGK Tr.167): Gọi tên dạng năng lượng chính của các vật sau:",
+                    items: [
+                        { label: "a) Chiếc nỏ đã được giương căng", answer: "Thế năng đàn hồi" },
+                        { label: "b) Thác nước đang chảy từ trên cao xuống", answer: "Động năng và Thế năng hấp dẫn" },
+                        { label: "c) Ánh sáng từ ngọn nến đang cháy", answer: "Quang năng (và Nhiệt năng)" },
+                        { label: "d) Cục pin dự phòng", answer: "Hóa năng" }
+                    ]
+                },
+                {
+                    id: 2, question: "Câu 2 (SGK Tr.167): Hãy chỉ ra sự chuyển hóa năng lượng trong các trường hợp sau:",
+                    items: [
+                        { label: "Bật quạt trần", answer: "Điện năng ➔ Động năng (chủ yếu) + Nhiệt năng (hao phí)" },
+                        { label: "Sử dụng bếp gas để đun nước", answer: "Hóa năng ➔ Nhiệt năng + Quang năng" },
+                        { label: "Cọ xát hai bàn tay vào nhau thấy nóng lên", answer: "Động năng ➔ Nhiệt năng" }
+                    ]
+                }
+            ];
+            const [showAnswers, setShowAnswers] = useState({});
+            const toggleAnswer = (qId, iIndex) => setShowAnswers(prev => ({ ...prev, [`${qId}-${iIndex}`]: !prev[`${qId}-${iIndex}`] }));
+
+            return (
+                <div className="animate-fade-in space-y-6">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2 border-l-4 border-yellow-500 pl-4">Hoạt động 4: Vận dụng</h2>
+                        <p className="text-gray-600 mb-8">Vận dụng các kiến thức về dạng năng lượng để giải bài tập Tự luận (SGK Trang 167).</p>
+
+                        <div className="space-y-6">
+                            {exercises.map((ex) => (
+                                <div key={ex.id} className="bg-yellow-50/50 p-6 rounded-xl border border-yellow-200 shadow-sm">
+                                    <h4 className="text-lg font-bold text-gray-800 mb-5">{ex.question}</h4>
+                                    <ul className="space-y-4">
+                                        {ex.items.map((item, idx) => {
+                                            const isShowing = showAnswers[`${ex.id}-${idx}`];
+                                            return (
+                                                <li key={idx} className="flex flex-col md:flex-row md:items-center justify-between bg-white p-4 rounded-xl border border-gray-200 gap-4 shadow-sm">
+                                                    <span className="font-medium text-gray-800">{item.label}</span>
+                                                    <div className="flex items-center gap-3">
+                                                        {isShowing && <span className="animate-scale-in text-blue-700 font-bold bg-blue-100 px-4 py-2 rounded-lg text-sm border border-blue-200">{item.answer}</span>}
+                                                        <button onClick={() => toggleAnswer(ex.id, idx)} className="text-sm bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg font-bold transition-colors whitespace-nowrap">{isShowing ? 'Ẩn đáp án' : 'Xem đáp án'}</button>
+                                                    </div>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="mt-8 text-center border-t border-gray-200 pt-8">
+                            <button onClick={() => onComplete('application')} className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-transform hover:scale-105">Đến phần Tổng kết ➔</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // TỔNG KẾT
+        const TabSummary = ({ onComplete }) => (
+            <div className="animate-fade-in space-y-6 max-w-4xl mx-auto">
+                <div className="bg-blue-50 rounded-xl p-6 md:p-8 border border-blue-200 relative overflow-hidden shadow-sm">
+                    <div className="absolute top-0 right-0 p-4 opacity-10"><IconBookOpen /></div>
+                    <h2 className="text-2xl font-bold text-blue-900 mb-4 flex items-center gap-2"><IconCheckSquare /> Em đã học được gì?</h2>
+                    <ul className="list-disc list-inside space-y-3 text-blue-800 text-lg relative z-10 leading-relaxed marker:text-blue-500">
+                        <li>Mọi biến đổi trong tự nhiên đều cần năng lượng. Chúngạm không nhìn thấy năng lượng nhưng có thể <strong>nhận biết</strong> được nó qua các tác dụng (lực, nhiệt độ, ánh sáng...).</li>
+                        <li>Có nhiều dạng năng lượng khác nhau: Động năng, Thế năng (hấp dẫn, đàn hồi), Hóa năng, Điện năng, Quang năng, Nhiệt năng, Năng lượng âm.</li>
+                        <li>Năng lượng có thể <strong>chuyển hóa</strong> từ dạng này sang dạng khác (Ví dụ: điện năng thành quang năng ở bóng đèn).</li>
+                    </ul>
+                </div>
+                <div className="bg-amber-50 rounded-xl p-6 md:p-8 border border-amber-200 relative overflow-hidden shadow-sm">
+                    <div className="absolute top-0 right-0 p-4 opacity-10"><IconSun /></div>
+                    <h2 className="text-2xl font-bold text-amber-900 mb-4 flex items-center gap-2"><IconStar /> Em có biết?</h2>
+                    <div className="space-y-4 text-amber-900 relative z-10">
+                        <p><strong>Năng lượng của một tia sét:</strong> Một tia sét mang một nguồn năng lượng khổng lồ, chủ yếu là điện năng và nhiệt năng. Nhiệt độ của tia sét có thể lên tới <strong>30.000°C</strong> (nóng gấp 5 lần bề mặt Mặt trời). Năng lượng của một tia sét đủ để thắp sáng một bóng đèn 100W trong hơn 3 tháng liên tục!</p>
+                        <p><strong>Cơ thể chúng ta cũng tỏa nhiệt:</strong> Nhờ quá trình hô hấp và tiêu hóa thức ăn (hóa năng), cơ thể con người liên tục sản sinh ra nhiệt năng để duy trì thân nhiệt ở mức ~37°C. Khi bạn chạy bộ, động năng tăng lên và nhiệt năng tỏa ra càng nhiều khiến bạn đổ mồ hôi.</p>
+                    </div>
+                </div>
+                <div className="text-center mt-10">
+                    <button onClick={() => onComplete('summary')} className="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-10 rounded-full shadow-xl transition-transform hover:scale-110 text-xl border-4 border-green-300">🎉 HOÀN THÀNH BÀI HỌC 🎉</button>
+                </div>
+            </div>
+        );
+
+        // --- ROOT APP ---
+        const App = () => {
+            const [currentTab, setCurrentTab] = useState('warmup'); // Đặt màn hình mặc định là Khởi động
+            const [unlockedTabs, setUnlockedTabs] = useState(['warmup']);
+
+            const navItems = [
+                { id: 'warmup', label: '1. Khởi động', icon: <IconPlay /> },
+                { id: 'discovery', label: '2. Hình thành KT', icon: <IconBookOpen /> },
+                { id: 'practice', label: '3. Luyện tập', icon: <IconPenTool /> },
+                { id: 'application', label: '4. Vận dụng', icon: <IconActivity /> },
+                { id: 'summary', label: 'Tổng kết', icon: <IconStar /> }
+            ];
+
+            const handleTabClick = (id) => {
+                if (unlockedTabs.includes(id)) {
+                    setCurrentTab(id);
+                } else {
+                    alert('Bạn cần hoàn thành phần bài học trước đó (bấm nút "Đi tiếp" ở phần nội dung) để mở khóa nội dung này nhé!');
+                }
+            };
+
+            const unlockNext = (currentId) => {
+                const currentIndex = navItems.findIndex(item => item.id === currentId);
+                if (currentIndex < navItems.length - 1) {
+                    const nextId = navItems[currentIndex + 1].id;
+                    if (!unlockedTabs.includes(nextId)) {
+                        setUnlockedTabs(prev => [...prev, nextId]);
+                    }
+                    setCurrentTab(nextId);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    if (window.parent) {
+                        window.parent.postMessage({ type: 'SIMULATION_RESULT', score: 10, details: { message: 'Tuyệt vời! Bạn đã hoàn thành xuất sắc toàn bộ bài học.' } }, '*');
+                    }
+                    alert('Chúc mừng bạn đã hoàn thành xuất sắc toàn bộ bài học!');
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col font-sans text-gray-800">
+                    <header className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-md">
+                        <div className="max-w-6xl mx-auto px-4 py-5 md:py-6">
+                            <h1 className="text-xl md:text-2xl font-bold mb-1">KHTN 6 | Bài 47: Một số dạng năng lượng</h1>
+                            <p className="text-blue-100 flex items-center gap-2 text-sm">
+                                <span className="inline-block w-2 h-2 rounded-full bg-green-400"></span>
+                                Thiết kế theo cấu trúc bài giảng 5512
+                            </p>
+                        </div>
+                    </header>
+
+                    <nav className="bg-white shadow-sm sticky top-0 z-10 overflow-x-auto border-b border-gray-200">
+                        <div className="max-w-6xl mx-auto flex px-2 custom-scrollbar">
+                            {navItems.map(item => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => handleTabClick(item.id)}
+                                    className={`tab-btn flex items-center gap-2 py-4 px-3 md:px-6 whitespace-nowrap transition-colors font-bold text-sm md:text-base ${currentTab === item.id
+                                            ? 'text-blue-700 bg-blue-50/50 active'
+                                            : unlockedTabs.includes(item.id)
+                                                ? 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                                                : 'text-gray-300 cursor-not-allowed opacity-60'
+                                        }`}
+                                >
+                                    {React.cloneElement(item.icon, { size: 18 })}
+                                    {item.label}
+                                    {!unlockedTabs.includes(item.id) && <span className="ml-1 text-xs">🔒</span>}
+                                </button>
+                            ))}
+                        </div>
+                    </nav>
+
+                    <main className="flex-grow max-w-6xl mx-auto w-full p-4 md:p-6 pb-20">
+                        {currentTab === 'warmup' && <Act1_WarmUp onComplete={unlockNext} />}
+                        {currentTab === 'discovery' && <Act2_Discovery onComplete={unlockNext} />}
+                        {currentTab === 'practice' && <Act3_Practice onComplete={unlockNext} />}
+                        {currentTab === 'application' && <Act4_Application onComplete={unlockNext} />}
+                        {currentTab === 'summary' && <TabSummary onComplete={unlockNext} />}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
