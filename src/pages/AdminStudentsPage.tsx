@@ -65,7 +65,7 @@ const AdminStudentsPage = () => {
         try {
             // Parse tab-separated or comma-separated values
             const lines = importText.trim().split('\n');
-            const newStudents: any[] = [];
+            const newStudentsMap = new Map<string, any>();
 
             for (const line of lines) {
                 // Try tab first (Excel copy-paste), then fall back to comma
@@ -79,7 +79,7 @@ const AdminStudentsPage = () => {
                     const password = parts[4]?.trim() || parts[3]?.trim() || mhs;
 
                     if (mhs && name) {
-                        newStudents.push({
+                        newStudentsMap.set(mhs, {
                             student_code: mhs,
                             full_name: name,
                             password: password,
@@ -88,6 +88,8 @@ const AdminStudentsPage = () => {
                     }
                 }
             }
+
+            const newStudents = Array.from(newStudentsMap.values());
 
             if (newStudents.length === 0) {
                 throw new Error('Không tìm thấy dữ liệu hợp lệ. Định dạng: Mã HS (tab) Họ tên');
