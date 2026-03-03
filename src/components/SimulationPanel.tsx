@@ -394,7 +394,7 @@ const IframeSim = ({ lessonId, config }: { lessonId: string; config: any }) => {
   }
 
   return (
-    <div className="w-full h-[calc(100vh-180px)] bg-white overflow-hidden">
+    <div className="w-full h-[calc(100vh-120px)] bg-white overflow-hidden">
       <iframe
         src={!htmlContent ? iframeUrl : undefined}
         srcDoc={htmlContent || undefined}

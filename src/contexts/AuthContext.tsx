@@ -39,6 +39,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const checkAdminRole = async (userId: string) => {
+    // If it's a demo admin, we already know they are admin
+    if (userId === 'demo-admin-id') {
+      setIsAdmin(true);
+      return;
+    }
+
     const { data } = await supabase
       .from('user_roles')
       .select('role')
@@ -49,42 +55,83 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setTimeout(() => checkAdminRole(session.user.id), 0);
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      setIsLoading(true);
+      try {
+        // 1. Check for real Supabase Session
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+        if (currentSession?.user) {
+          if (mounted) {
+            setSession(currentSession);
+            setUser(currentSession.user);
+            await checkAdminRole(currentSession.user.id);
+          }
         } else {
-          setIsAdmin(false);
+          // 2. Check for Student session
+          const savedStudentId = localStorage.getItem('student_id');
+          if (savedStudentId) {
+            const { data, error } = await (supabase
+              .from('students' as any)
+              .select('*')
+              .eq('id', savedStudentId)
+              .maybeSingle() as any);
+
+            if (data && !error && mounted) {
+              setStudent(data as unknown as Student);
+              setIsAdmin(false);
+            }
+          } else {
+            // 3. Check for Demo Admin persistence
+            const isDemoAdmin = localStorage.getItem('is_demo_admin') === 'true';
+            if (isDemoAdmin && mounted) {
+              const mockUser = {
+                id: 'demo-admin-id',
+                email: 'ddhisk9x@gmail.com',
+                user_metadata: { display_name: 'Admin Demo' }
+              } as unknown as User;
+              setUser(mockUser);
+              setSession({ user: mockUser, access_token: 'mock-token', expires_at: Date.now() + 3600000 } as any);
+              setIsAdmin(true);
+              setStudent(null);
+            }
+          }
         }
-        setIsLoading(false);
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    // Listen for auth changes (for real Supabase users)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, newSession) => {
+        if (_event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          setIsAdmin(false);
+          setStudent(null);
+          localStorage.removeItem('student_id');
+          localStorage.removeItem('is_demo_admin');
+        } else if (newSession) {
+          setSession(newSession);
+          setUser(newSession.user);
+          checkAdminRole(newSession.user.id);
+          localStorage.removeItem('student_id');
+          localStorage.removeItem('is_demo_admin');
+        }
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        checkAdminRole(session.user.id);
-      } else {
-        // Check for student login in localStorage
-        const savedStudentId = localStorage.getItem('student_id');
-        if (savedStudentId) {
-          const { data, error } = await (supabase
-            .from('students' as any)
-            .select('*')
-            .eq('id', savedStudentId)
-            .maybeSingle() as any);
-          if (data && !error) {
-            setStudent(data as unknown as Student);
-          }
-        }
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, displayName: string) => {
@@ -109,8 +156,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } as unknown as User;
 
       setUser(mockUser);
-      setSession({ user: mockUser, access_token: 'mock-token', expires_at: Date.now() + 3600 } as any);
+      setSession({ user: mockUser, access_token: 'mock-token', expires_at: Date.now() + 3600000 } as any);
       setIsAdmin(true);
+      setStudent(null);
+      localStorage.removeItem('student_id');
+      localStorage.setItem('is_demo_admin', 'true');
       return { error: null };
     }
 
@@ -118,6 +168,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!error) {
       setStudent(null);
       localStorage.removeItem('student_id');
+      localStorage.removeItem('is_demo_admin');
     }
     return { error };
   };
@@ -141,6 +192,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
     setIsAdmin(false);
     localStorage.setItem('student_id', data.id);
+    localStorage.removeItem('is_demo_admin');
     return { error: null };
   };
 
@@ -151,6 +203,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
     setIsAdmin(false);
     localStorage.removeItem('student_id');
+    localStorage.removeItem('is_demo_admin');
   };
 
   return (
