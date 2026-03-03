@@ -173,7 +173,10 @@ const AdminSimulationsPage = () => {
     try {
       const { data, error } = await supabase.storage
         .from('html_lessons')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          contentType: 'text/html; charset=utf-8',
+          upsert: false
+        });
 
       if (error) {
         if (error.message.includes('Bucket not found') || error.message.includes('The resource was not found')) {
