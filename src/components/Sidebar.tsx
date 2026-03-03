@@ -12,7 +12,7 @@ const gradeItems = [
   { path: '/exercises/6', label: 'Lớp 6', icon: 'local_florist' },
   { path: '/exercises/7', label: 'Lớp 7', icon: 'science' },
   { path: '/exercises/8', label: 'Lớp 8', icon: 'biotech' },
-  { path: '/exercises/9', label: 'Lớp 9', icon: 'genetics' },
+  { path: '/exercises/9', label: 'Lớp 9', icon: 'memory' },
 ];
 
 const personalItems = [
@@ -32,8 +32,8 @@ const Sidebar = () => {
     <button
       onClick={() => navigate(path)}
       className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${isActive(path)
-          ? 'bg-primary text-primary-foreground shadow-md'
-          : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+        ? 'bg-primary text-primary-foreground shadow-md'
+        : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
         }`}
     >
       <MaterialIcon name={icon} size={20} />

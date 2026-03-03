@@ -35,6 +35,7 @@ const AdminSimulationsPage = () => {
   const [selectedGrade, setSelectedGrade] = useState(6);
   const [selectedChapter, setSelectedChapter] = useState('');
   const [selectedLesson, setSelectedLesson] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'simulation' | 'iframe'>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -267,9 +268,15 @@ const AdminSimulationsPage = () => {
   const dupChapterData = dupChapters.find(c => c.id === dupChapter);
   const dupLessons = dupChapterData?.lessons || [];
 
-  // Group simulations by lesson
-  const simsForLesson = (lessonId: string) =>
-    simulations.filter(s => s.lesson_id === lessonId);
+  // Group simulations by lesson and apply filter
+  const simsForLesson = (lessonId: string) => {
+    return simulations.filter(s => {
+      if (s.lesson_id !== lessonId) return false;
+      if (filterType === 'all') return true;
+      if (filterType === 'iframe') return s.sim_type === 'iframe';
+      return s.sim_type !== 'iframe';
+    });
+  };
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-background">
@@ -285,15 +292,37 @@ const AdminSimulationsPage = () => {
           </div>
         </div>
 
-        {/* Grade selector */}
-        <div className="flex gap-2 mb-4">
-          {[6, 7, 8, 9].map(g => (
-            <button key={g} onClick={() => { setSelectedGrade(g); setSelectedChapter(''); setSelectedLesson(''); }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedGrade === g ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}>
-              Lớp {g}
-            </button>
-          ))}
+        {/* Grade & Filter selector */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-4 justify-between">
+          <div className="flex gap-2">
+            {[6, 7, 8, 9].map(g => (
+              <button key={g} onClick={() => { setSelectedGrade(g); setSelectedChapter(''); setSelectedLesson(''); }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedGrade === g ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}>
+                Lớp {g}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-1 bg-muted/50 p-1 rounded-lg">
+            {[
+              { id: 'all', label: 'Tất cả', icon: 'list' },
+              { id: 'simulation', label: 'Mô phỏng', icon: 'science' },
+              { id: 'iframe', label: 'HTML (Tự học)', icon: 'html' }
+            ].map(f => (
+              <button
+                key={f.id}
+                onClick={() => setFilterType(f.id as any)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${filterType === f.id
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                  }`}
+              >
+                <MaterialIcon name={f.icon} size={16} />
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Chapters */}
