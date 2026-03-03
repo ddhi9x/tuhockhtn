@@ -337,7 +337,28 @@ const CircuitSim = () => {
 // ─── External iframe simulation ───
 
 const IframeSim = ({ lessonId, config }: { lessonId: string; config: any }) => {
+  const [htmlContent, setHtmlContent] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const iframeUrl = config?.url || (config?.htmlFile ? `/lessons/${config.htmlFile}?lessonId=${lessonId}` : '/lessons/sample_lesson.html');
+
+  useEffect(() => {
+    // Nếu là URL từ Supabase (có chứa supabase.co/storage) thì nên fetch content để hiển thị đúng HTML
+    if (iframeUrl.startsWith('http') && (iframeUrl.includes('supabase.co') || iframeUrl.includes('supabase.net'))) {
+      setIsLoading(true);
+      fetch(iframeUrl)
+        .then(res => res.text())
+        .then(text => {
+          setHtmlContent(text);
+          setIsLoading(false);
+        })
+        .catch(err => {
+          console.error('Error fetching HTML:', err);
+          setIsLoading(false);
+        });
+    } else {
+      setHtmlContent(null);
+    }
+  }, [iframeUrl]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -363,10 +384,20 @@ const IframeSim = ({ lessonId, config }: { lessonId: string; config: any }) => {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
+  if (isLoading) {
+    return (
+      <div className="w-full h-[600px] flex flex-col items-center justify-center bg-muted/30 rounded-2xl border border-dashed border-border">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-muted-foreground font-medium">Đang tải nội dung bài học...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-[600px] bg-white rounded-2xl shadow-inner overflow-hidden border border-border/50">
       <iframe
-        src={iframeUrl}
+        src={!htmlContent ? iframeUrl : undefined}
+        srcDoc={htmlContent || undefined}
         title="Interactive Simulation"
         className="w-full h-full border-none"
         sandbox="allow-scripts allow-same-origin"
