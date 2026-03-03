@@ -386,7 +386,7 @@ const IframeSim = ({ lessonId, config }: { lessonId: string; config: any }) => {
 
   if (isLoading) {
     return (
-      <div className="w-full h-[600px] flex flex-col items-center justify-center bg-muted/30 rounded-2xl border border-dashed border-border">
+      <div className="w-full h-[calc(100vh-230px)] flex flex-col items-center justify-center bg-muted/30 rounded-2xl border border-dashed border-border transition-all">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
         <p className="text-sm text-muted-foreground font-medium">Đang tải nội dung bài học...</p>
       </div>
@@ -394,7 +394,7 @@ const IframeSim = ({ lessonId, config }: { lessonId: string; config: any }) => {
   }
 
   return (
-    <div className="w-full h-[600px] bg-white rounded-2xl shadow-inner overflow-hidden border border-border/50">
+    <div className="w-full h-[calc(100vh-230px)] bg-white rounded-xl shadow-sm overflow-hidden border border-border/50">
       <iframe
         src={!htmlContent ? iframeUrl : undefined}
         srcDoc={htmlContent || undefined}
