@@ -133,11 +133,18 @@ const GradeExercisePage = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => handleViewTheory(lesson.id, lesson.name, 'self_study')}
+                        className="flex items-center gap-1.5 border border-purple-500/50 text-purple-600 bg-purple-500/5 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-purple-500/10 transition-colors"
+                      >
+                        <MaterialIcon name="html" size={16} />
+                        Tự học
+                      </button>
+                      <button
                         onClick={() => handleViewTheory(lesson.id, lesson.name, 'simulation')}
                         className="flex items-center gap-1.5 border border-destructive/50 text-destructive bg-destructive/5 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-destructive/10 transition-colors"
                       >
-                        <MaterialIcon name="play_lesson" size={16} />
-                        Tự học
+                        <MaterialIcon name="science" size={16} />
+                        Mô phỏng
                       </button>
                       <button
                         onClick={() => handleViewTheory(lesson.id, lesson.name)}

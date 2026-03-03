@@ -610,7 +610,8 @@ const LessonTheoryPage = () => {
         <div className="flex gap-1 mt-3">
           {[
             { id: 'theory' as const, label: 'Lý thuyết SGK', icon: 'menu_book' },
-            { id: 'simulation' as const, label: 'Tự học / Mô phỏng', icon: 'science' },
+            { id: 'self_study' as const, label: 'Tự học (HTML)', icon: 'html' },
+            { id: 'simulation' as const, label: 'Mô phỏng', icon: 'science' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -906,11 +907,15 @@ const LessonTheoryPage = () => {
                 </div>
               )}
             </motion.div>
-          ) : (
-            <motion.div key="simulation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <SimulationPanel lessonId={lessonId} lessonName={lessonName} grade={gradeNum} />
+          ) : activeTab === 'self_study' ? (
+            <motion.div key="self_study" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+              <SimulationPanel lessonId={lessonId!} lessonName={lessonName!} grade={gradeNum} filterType="iframe" />
             </motion.div>
-          )}
+          ) : activeTab === 'simulation' ? (
+            <motion.div key="simulation" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+              <SimulationPanel lessonId={lessonId!} lessonName={lessonName!} grade={gradeNum} filterType="simulation" />
+            </motion.div>
+          ) : null}
         </AnimatePresence>
       </div>
     </div>

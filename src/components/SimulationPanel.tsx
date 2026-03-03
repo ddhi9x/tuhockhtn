@@ -7,6 +7,7 @@ interface SimulationPanelProps {
   lessonId: string;
   lessonName: string;
   grade: number;
+  filterType?: 'iframe' | 'simulation';
 }
 
 // ─── Built-in simulation components ───
@@ -410,7 +411,7 @@ interface SimEntry {
   config?: any;
 }
 
-const SimulationPanel: React.FC<SimulationPanelProps> = ({ lessonId, lessonName, grade }) => {
+const SimulationPanel: React.FC<SimulationPanelProps> = ({ lessonId, lessonName, grade, filterType }) => {
   const [dbSims, setDbSims] = useState<SimEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSimIndex, setActiveSimIndex] = useState(0);
@@ -432,10 +433,20 @@ const SimulationPanel: React.FC<SimulationPanelProps> = ({ lessonId, lessonName,
     fetch();
   }, [lessonId]);
 
-  // Determine simulations to show
-  const simEntries: SimEntry[] = dbSims.length > 0
-    ? dbSims
+  // Determine simulations to show based on filterType
+  let filteredDbSims = dbSims;
+  if (filterType === 'iframe') {
+    filteredDbSims = dbSims.filter(s => s.sim_type === 'iframe');
+  } else if (filterType === 'simulation') {
+    filteredDbSims = dbSims.filter(s => s.sim_type !== 'iframe');
+  }
+
+  const simEntries: SimEntry[] = filteredDbSims.length > 0
+    ? filteredDbSims
     : (() => {
+      // If we are strictly looking for iframe, don't fallback to phet simulations
+      if (filterType === 'iframe') return [];
+
       const detected = autoDetect(lessonName);
       if (detected && simComponentMap[detected]) {
         return [{ id: 'auto', sim_type: detected, title: simComponentMap[detected].defaultTitle, description: null }];
