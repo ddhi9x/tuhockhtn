@@ -23,6 +23,7 @@ import AdminStudentsPage from "@/pages/AdminStudentsPage";
 import ExamPage from "@/pages/ExamPage";
 import AuthPage from "@/pages/AuthPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
+import AdminSettingsPage from "@/pages/AdminSettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const App = () => (
                 <Route path="/admin/exercises" element={<AdminRoute><AdminExercisesPage /></AdminRoute>} />
                 <Route path="/admin/students" element={<AdminRoute><AdminStudentsPage /></AdminRoute>} />
                 <Route path="/admin/videos" element={<AdminRoute><AdminVideosPage /></AdminRoute>} />
+                <Route path="/admin/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -42,6 +42,12 @@ export interface AppState {
   dailyActivities: DailyActivity[];
   streak: number;
   lastActiveDate: string;
+  activeLesson?: {
+    id: string;
+    name: string;
+    chapter: string;
+    grade: string;
+  };
 }
 
 const defaultState: AppState = {
@@ -71,6 +77,7 @@ interface AppContextType {
   updateDailyActivity: (activity: Partial<DailyActivity>) => void;
   getTodayActivity: () => DailyActivity;
   getWeekActivities: () => DailyActivity[];
+  setActiveLesson: (lesson: AppState['activeLesson']) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -89,14 +96,14 @@ const loadState = (): AppState => {
     if (saved) {
       return { ...defaultState, ...JSON.parse(saved) };
     }
-  } catch {}
+  } catch { }
   return defaultState;
 };
 
 const saveState = (state: AppState) => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {}
+  } catch { }
 };
 
 const getToday = () => new Date().toISOString().split('T')[0];
@@ -105,16 +112,16 @@ const calculateStreak = (activities: DailyActivity[], lastActive: string): numbe
   if (!lastActive) return 0;
   const today = getToday();
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-  
+
   if (lastActive !== today && lastActive !== yesterday) return 0;
-  
+
   let streak = lastActive === today ? 1 : 0;
   const sorted = [...activities]
     .filter(a => a.exerciseCount > 0 || a.theoryTime > 0)
     .sort((a, b) => b.date.localeCompare(a.date));
-  
+
   let checkDate = lastActive === today ? yesterday : lastActive;
-  
+
   for (const act of sorted) {
     if (act.date === checkDate) {
       streak++;
@@ -122,7 +129,7 @@ const calculateStreak = (activities: DailyActivity[], lastActive: string): numbe
       checkDate = prev;
     }
   }
-  
+
   return Math.max(streak, lastActive === today ? 1 : 0);
 };
 
@@ -187,15 +194,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const updated = existing
         ? { ...existing, ...activity }
         : { date: today, theoryTime: 0, exerciseCount: 0, totalTime: 0, ...activity };
-      
+
       const activities = existing
         ? prev.dailyActivities.map(a => a.date === today ? updated : a)
         : [...prev.dailyActivities, updated];
 
       const streak = calculateStreak(activities, today);
-      
+
       return { ...prev, dailyActivities: activities, streak, lastActiveDate: today };
     });
+  };
+
+  const setActiveLesson = (lesson: AppState['activeLesson']) => {
+    setState(prev => ({ ...prev, activeLesson: lesson }));
   };
 
   return (
@@ -210,6 +221,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       updateDailyActivity,
       getTodayActivity,
       getWeekActivities,
+      setActiveLesson,
     }}>
       {children}
     </AppContext.Provider>

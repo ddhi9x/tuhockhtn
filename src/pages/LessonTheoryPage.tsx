@@ -3,6 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAppContext } from '@/contexts/AppContext';
 import MaterialIcon from '@/components/MaterialIcon';
 import { toast } from 'sonner';
 import SimulationPanel from '@/components/SimulationPanel';
@@ -370,20 +371,35 @@ const LessonTheoryPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
+  const { setActiveLesson } = useAppContext();
   const lessonId = searchParams.get('lessonId') || '';
   const lessonName = searchParams.get('lessonName') || '';
   const chapterName = searchParams.get('chapterName') || '';
   const gradeNum = parseInt(grade || '6');
 
-  const [activeTab, setActiveTab] = useState<'theory' | 'simulation' | 'self_study'>('theory');
+  const [activeTab, setActiveTab] = useState<'theory' | 'simulation' | 'self_study' | 'video'>('theory');
+  const [lessonVideos, setLessonVideos] = useState<any[]>([]);
 
   // Set tab from query params if available
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'simulation' || tabParam === 'self_study') {
+    if (tabParam === 'simulation' || tabParam === 'self_study' || tabParam === 'video') {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    // Record current context for Chatbot
+    if (lessonId && lessonName && chapterName && gradeNum) {
+      setActiveLesson({
+        id: lessonId,
+        name: lessonName,
+        chapter: chapterName,
+        grade: gradeNum.toString()
+      });
+    }
+  }, [lessonId, lessonName, chapterName, gradeNum, setActiveLesson]);
+
   const [summary, setSummary] = useState('');
   const [keyPoints, setKeyPoints] = useState<string[]>([]);
   const [rawContent, setRawContent] = useState('');
@@ -532,6 +548,15 @@ const LessonTheoryPage = () => {
         setIllustrations((data.illustrations as Record<string, string>) || {});
       }
       setIsFetching(false);
+
+      // Fetch videos as well
+      const { data: vData } = await supabase
+        .from('lesson_videos')
+        .select('*')
+        .eq('lesson_id', lessonId)
+        .eq('is_active', true)
+        .order('sort_order');
+      if (vData) setLessonVideos(vData);
     };
     if (lessonId) fetchTheory();
   }, [lessonId]);
@@ -612,6 +637,7 @@ const LessonTheoryPage = () => {
             { id: 'theory' as const, label: 'Lý thuyết SGK', icon: 'menu_book' },
             { id: 'self_study' as const, label: 'Tự học (HTML)', icon: 'html' },
             { id: 'simulation' as const, label: 'Mô phỏng', icon: 'science' },
+            { id: 'video' as const, label: 'Video Thí nghiệm', icon: 'video_library' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -627,7 +653,7 @@ const LessonTheoryPage = () => {
       </div>
 
       {/* Content */}
-      <div className={`flex-1 overflow-y-auto scrollbar-thin ${activeTab === 'theory' ? 'p-6' : 'p-0'}`}>
+      <div className={`flex-1 overflow-y-auto scrollbar-thin ${activeTab === 'theory' || activeTab === 'video' ? 'p-6' : 'p-0'}`}>
         <AnimatePresence mode="wait">
           {activeTab === 'theory' ? (
             <motion.div key="theory" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -904,6 +930,53 @@ const LessonTheoryPage = () => {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+            </motion.div>
+          ) : activeTab === 'video' ? (
+            <motion.div key="video" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-4xl mx-auto space-y-8">
+              {lessonVideos.length > 0 ? (
+                <div className="grid gap-8">
+                  {lessonVideos.map((video, idx) => {
+                    // Extract YT ID if possible
+                    let embedUrl = video.video_url;
+                    if (video.video_url.includes('youtube.com/watch?v=')) {
+                      embedUrl = `https://www.youtube.com/embed/${video.video_url.split('v=')[1].split('&')[0]}`;
+                    } else if (video.video_url.includes('youtu.be/')) {
+                      embedUrl = `https://www.youtube.com/embed/${video.video_url.split('be/')[1].split('?')[0]}`;
+                    }
+
+                    return (
+                      <div key={video.id} className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                        <div className="aspect-video w-full bg-black">
+                          <iframe
+                            src={embedUrl}
+                            title={video.title}
+                            className="w-full h-full border-none"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                          ></iframe>
+                        </div>
+                        <div className="p-5">
+                          <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs">{idx + 1}</span>
+                            {video.title}
+                          </h3>
+                          {video.description && <p className="text-sm text-muted-foreground">{video.description}</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center mb-4">
+                    <MaterialIcon name="video_library" size={40} className="text-muted-foreground/30" />
+                  </div>
+                  <h3 className="text-lg font-bold mb-1">Chưa có video thí nghiệm</h3>
+                  <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                    Video quay lại các thí nghiệm thực tế của bài học sẽ được cập nhật sớm.
+                  </p>
                 </div>
               )}
             </motion.div>

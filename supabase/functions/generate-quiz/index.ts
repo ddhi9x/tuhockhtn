@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +12,14 @@ serve(async (req) => {
   try {
     const { lessonName, chapterName, grade, numQuestions } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const { data: settings } = await supabase.from('app_settings').select('gemini_api_key').limit(1).maybeSingle();
+    const GEMINI_API_KEY = settings?.gemini_api_key || Deno.env.get("GEMINI_API_KEY");
+
 
     const count = Math.min(Math.max(numQuestions || 5, 1), 20);
 
@@ -22,14 +30,37 @@ Quy tắc:
 - Mỗi câu có 4 đáp án A, B, C, D
 - Đáp án nhiễu phải hợp lý, không quá dễ loại trừ
 - Giải thích ngắn gọn, dễ hiểu, phù hợp lứa tuổi THCS
-- Trộn đều các mức độ: nhận biết, thông hiểu, vận dụng`;
-
-    const userPrompt = `Tạo ${count} câu hỏi trắc nghiệm cho:
-- Bài: "${lessonName}"
-- Chương: "${chapterName}"  
-- Lớp: ${grade}
+- Trộn đều các mức độ: nhận biết, thông hiểu, vận dụng
 
 Trả về JSON array, mỗi phần tử có: question, options (array 4 strings có prefix A./B./C./D.), correct (index 0-3), explanation.`;
+
+    const userPrompt = `Tạo ${count} câu hỏi trắc nghiệm lớp ${grade} cho bài "${lessonName}" (Chương ${chapterName}).`;
+
+    if (GEMINI_API_KEY) {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: { responseMimeType: "application/json" }
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        console.error("Gemini Quiz error:", err);
+        throw new Error("Lỗi gọi Gemini API cho bài tập");
+      }
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+      return new Response(JSON.stringify({ questions: JSON.parse(text) }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    if (!LOVABLE_API_KEY) throw new Error("Chưa cấu hình GEMINI_API_KEY");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -38,7 +69,7 @@ Trả về JSON array, mỗi phần tử có: question, options (array 4 strings
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.0-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -48,40 +79,25 @@ Trả về JSON array, mỗi phần tử có: question, options (array 4 strings
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Hệ thống đang bận, vui lòng thử lại sau." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Đã hết lượt sử dụng AI, vui lòng liên hệ quản trị viên." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const status = response.status;
+      if (status === 429) return new Response(JSON.stringify({ error: "Hệ thống đang bận" }), { status: 429, headers: corsHeaders });
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "Lỗi tạo câu hỏi AI" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("Gateway Quiz error:", t);
+      throw new Error("Gateway error");
     }
 
     const data = await response.json();
     const text = data?.choices?.[0]?.message?.content || '';
 
-    // Extract JSON array from response
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return new Response(JSON.stringify({ questions: parsed }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      return new Response(JSON.stringify({ questions: parsed }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(JSON.stringify({ error: "Không thể phân tích câu hỏi từ AI" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    throw new Error("Không thể phân tích câu hỏi");
   } catch (e) {
     console.error("generate-quiz error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {

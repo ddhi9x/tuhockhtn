@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,7 +12,13 @@ serve(async (req) => {
   try {
     const { content, lessonName, chapterName, grade } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const { data: settings } = await supabase.from('app_settings').select('gemini_api_key').limit(1).maybeSingle();
+    const GEMINI_API_KEY = settings?.gemini_api_key || Deno.env.get("GEMINI_API_KEY");
 
     if (!content || !lessonName) {
       return new Response(JSON.stringify({ error: "Missing content or lessonName" }), {
@@ -22,16 +29,33 @@ serve(async (req) => {
 
     const systemPrompt = `Bạn là một giáo viên Khoa học tự nhiên cấp THCS giàu kinh nghiệm. Nhiệm vụ của bạn là tóm tắt nội dung sách giáo khoa thành bản tóm tắt dễ hiểu cho học sinh.
 
-Hãy trả lời theo ĐÚNG format JSON sau (không markdown, không code block):
+Trả về JSON (không markdown code block):
 {
-  "summary": "Bản tóm tắt chi tiết nội dung bài học (500-1000 từ), có chia thành các phần rõ ràng với tiêu đề. Sử dụng ngôn ngữ đơn giản, dễ hiểu. Có thể dùng markdown formatting.",
-  "key_points": ["Điểm chính 1", "Điểm chính 2", "Điểm chính 3", "...tối đa 8 điểm"]
+  "summary": "Bản tóm tắt chi tiết內容",
+  "key_points": ["Điểm chính 1", "Điểm chính 2", "..."]
 }`;
 
-    const userPrompt = `Lớp ${grade} - ${chapterName || ''} - ${lessonName}
+    const userPrompt = `Lớp ${grade} - ${chapterName || ''} - ${lessonName}\n\nNội dung SGK:\n${content.substring(0, 15000)}`;
 
-Nội dung SGK:
-${content.substring(0, 15000)}`;
+    if (GEMINI_API_KEY) {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: { responseMimeType: "application/json" }
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Lỗi gọi Gemini API trực tiếp");
+      }
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      return new Response(text, { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

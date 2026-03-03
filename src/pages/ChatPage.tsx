@@ -55,6 +55,16 @@ const ChatPage = () => {
         content: m.content,
       }));
 
+      // Generate system prompt based on active lesson context
+      const activeLesson = state.activeLesson;
+      let systemPrompt = undefined;
+      if (activeLesson) {
+        systemPrompt = `Bạn là Gia sư AI môn Khoa học tự nhiên của tài nguyên này. Học sinh đang học bài: "${activeLesson.name}" (Chương ${activeLesson.chapter}, Lớp ${activeLesson.grade}). 
+        Bạn tuyệt đối chỉ cung cấp, giải thích, và trả lời các câu hỏi liên quan đến nội dung của bài học được chỉ định ở trên.
+        Bạn hãy luôn ưu tiên nhắc lại hoặc đưa ra ví dụ liên quan đến "${activeLesson.name}" vào câu trả lời để học sinh hiểu rõ nhất bài này.
+        Nếu phần hỏi nằm ngoài nội dung này, hãy khéo léo từ chối và hướng học sinh quay lại bài học chính, ví dụ: "Câu hỏi của bạn thú vị đấy, nhưng hiện tại chúng ta đang tập trung vào bài [Tên Bài] nhé!"`;
+      }
+
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
@@ -64,6 +74,7 @@ const ChatPage = () => {
         body: JSON.stringify({
           messages: [...history, { role: 'user', content: input.trim() }],
           mode,
+          systemPrompt,
         }),
       });
 
@@ -164,8 +175,22 @@ const ChatPage = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
       {/* Header */}
-      <div className="text-center py-3 border-b border-border">
-        <p className="text-xs text-muted-foreground">Trợ lý học tập 24/7</p>
+      <div className="text-center py-3 border-b border-border bg-card">
+        <p className="font-semibold text-primary/80">Trợ lý học tập Khoa học tự nhiên (24/7)</p>
+
+        {state.activeLesson ? (
+          <div className="mt-1 flex items-center justify-center gap-1.5 text-xs">
+            <MaterialIcon name="school" size={14} className="text-info" />
+            <span className="text-muted-foreground">Đang hỗ trợ bài:</span>
+            <span className="font-bold text-info">{state.activeLesson.name}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted border border-border text-muted-foreground">Lớp {state.activeLesson.grade}</span>
+          </div>
+        ) : (
+          <div className="mt-1 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+            <MaterialIcon name="explore" size={14} />
+            <span>Hỏi đáp tổng hợp (không chọn bài)</span>
+          </div>
+        )}
       </div>
 
       {/* Messages */}
@@ -177,7 +202,7 @@ const ChatPage = () => {
             </div>
             <div className="bg-card border border-border rounded-2xl rounded-tl-sm p-4 max-w-2xl">
               <p className="text-sm leading-relaxed">
-                Chào bạn! Mình là Gia sư AI. 👋 Mình chuyên về Khoa học tự nhiên (Lý, Hóa, Sinh). 
+                Chào bạn! Mình là Gia sư AI. 👋 Mình chuyên về Khoa học tự nhiên (Lý, Hóa, Sinh).
                 Hôm nay bạn muốn khám phá kiến thức nào? Bạn có thể gửi câu hỏi để mình hỗ trợ nhé!
               </p>
               <p className="text-[10px] text-muted-foreground mt-2">{formatTime(Date.now())}</p>
@@ -192,20 +217,18 @@ const ChatPage = () => {
             animate={{ opacity: 1, y: 0 }}
             className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
-            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-1 ${
-              msg.role === 'user' ? 'bg-primary' : 'bg-primary/10'
-            }`}>
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-1 ${msg.role === 'user' ? 'bg-primary' : 'bg-primary/10'
+              }`}>
               <MaterialIcon
                 name={msg.role === 'user' ? 'person' : 'smart_toy'}
                 size={20}
                 className={msg.role === 'user' ? 'text-primary-foreground' : 'text-primary'}
               />
             </div>
-            <div className={`rounded-2xl p-4 max-w-2xl text-sm leading-relaxed ${
-              msg.role === 'user'
+            <div className={`rounded-2xl p-4 max-w-2xl text-sm leading-relaxed ${msg.role === 'user'
                 ? 'bg-primary text-primary-foreground rounded-tr-sm'
                 : 'bg-card border border-border rounded-tl-sm text-foreground'
-            }`}>
+              }`}>
               <div className="whitespace-pre-wrap">{msg.content}</div>
               <p className={`text-[10px] mt-2 ${msg.role === 'user' ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
                 {formatTime(msg.timestamp)}
@@ -238,17 +261,15 @@ const ChatPage = () => {
           <span className="text-xs text-muted-foreground">Chế độ:</span>
           <button
             onClick={() => setMode('general')}
-            className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
-              mode === 'general' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
-            }`}
+            className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${mode === 'general' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+              }`}
           >
             💬 Hỏi đáp
           </button>
           <button
             onClick={() => setMode('exercise')}
-            className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
-              mode === 'exercise' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
-            }`}
+            className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${mode === 'exercise' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+              }`}
           >
             📝 Luyện đề AI
           </button>

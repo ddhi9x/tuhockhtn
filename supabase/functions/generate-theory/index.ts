@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,13 +12,13 @@ serve(async (req) => {
   try {
     const { lessonName, chapterName, grade } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    if (!lessonName) {
-      return new Response(JSON.stringify({ error: "Missing lessonName" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const { data: settings } = await supabase.from('app_settings').select('gemini_api_key').limit(1).maybeSingle();
+    const GEMINI_API_KEY = settings?.gemini_api_key || Deno.env.get("GEMINI_API_KEY");
 
     const systemPrompt = `Bạn là một giáo viên Khoa học tự nhiên cấp THCS giàu kinh nghiệm, dạy theo bộ sách "Kết nối tri thức với cuộc sống".
 
@@ -32,14 +33,36 @@ Yêu cầu:
 
 Trả về JSON (không markdown code block):
 {
-  "content": "Nội dung lý thuyết đầy đủ (dùng markdown formatting: ##, ###, -, **bold**)",
-  "summary": "Tóm tắt ngắn gọn 100-200 từ",
-  "key_points": ["Điểm chính 1", "Điểm chính 2", "...", "tối đa 8 điểm"]
+  "content": "Nội dung lý thuyết chi tiết",
+  "summary": "Tóm tắt ngắn gọn",
+  "key_points": ["Điểm chính 1", "Điểm chính 2", "..."]
 }`;
 
-    const userPrompt = `Lớp ${grade} - ${chapterName || ''} - ${lessonName}
+    const userPrompt = `Lớp ${grade} - ${chapterName || ''} - ${lessonName}. Viết lý thuyết chi tiết.`;
 
-Hãy viết nội dung lý thuyết đầy đủ cho bài học này theo chương trình SGK KHTN "Kết nối tri thức với cuộc sống".`;
+    if (GEMINI_API_KEY) {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          generationConfig: { responseMimeType: "application/json" }
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        console.error("Gemini Theory error:", err);
+        throw new Error("Lỗi gọi Gemini API cho lý thuyết");
+      }
+
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      return new Response(text, { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (!LOVABLE_API_KEY) throw new Error("Chưa cấu hình GEMINI_API_KEY");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -48,7 +71,7 @@ Hãy viết nội dung lý thuyết đầy đủ cho bài học này theo chươ
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.0-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -58,26 +81,14 @@ Hãy viết nội dung lý thuyết đầy đủ cho bài học này theo chươ
 
     if (!response.ok) {
       const status = response.status;
-      if (status === 429) {
-        return new Response(JSON.stringify({ error: "rate_limit" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "credits_exhausted" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      if (status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: corsHeaders });
       const t = await response.text();
-      console.error("AI gateway error:", status, t);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("Gateway Theory error:", t);
+      throw new Error("Gateway error");
     }
 
     const data = await response.json();
     const aiContent = data.choices?.[0]?.message?.content || "";
-
     let parsed;
     try {
       const jsonMatch = aiContent.match(/\{[\s\S]*\}/);

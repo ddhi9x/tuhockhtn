@@ -4,6 +4,7 @@ import { curriculumData } from '@/data/curriculumData';
 import MaterialIcon from '@/components/MaterialIcon';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import ApiConfigCard from '@/components/ApiConfigCard';
 
 // Available simulation types that are built into the app
 const SIM_TYPES = [
@@ -53,6 +54,13 @@ const AdminSimulationsPage = () => {
   const [formConfig, setFormConfig] = useState('{}');
   const [formOrder, setFormOrder] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isConsulting, setIsConsulting] = useState(false);
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+
+  // AI Prompt Modal
+  const [showPromptModal, setShowPromptModal] = useState(false);
+  const [promptText, setPromptText] = useState('');
+  const [promptLessonId, setPromptLessonId] = useState('');
 
   const gradeData = curriculumData.find(g => g.grade === selectedGrade);
   const chapters = gradeData?.chapters || [];
@@ -107,6 +115,129 @@ const AdminSimulationsPage = () => {
       }
     }
     setShowForm(true);
+  };
+
+  const handleAiConsultation = async () => {
+    const lesson = lessons.find(l => l.id === selectedLesson);
+    if (!lesson) { toast.error('Vui lòng chọn bài học trước'); return; }
+
+    setIsConsulting(true);
+    try {
+      const prompt = `Bạn là chuyên gia thiết kế bài giảng Khoa học tự nhiên. 
+      Bài học hiện tại: "${lesson.name}" thuộc chương "${selectedChapterData?.name}" lớp ${selectedGrade}.
+      Hãy tư vấn loại mô phỏng phù hợp nhất từ danh sách sau:
+      - friction: Lực ma sát
+      - circuit: Mạch điện Ohm
+      - ph_scale: Thang đo pH / Acid-Base
+      - atom: Cấu tạo nguyên tử
+      - states_of_matter: Các thể của chất
+      - cell: Cấu tạo tế bào
+      - iframe: Nếu các loại trên không phù hợp, hãy tìm 1 link mô phỏng Phet (HTML5) phù hợp.
+
+      Trả về kết quả dưới dạng JSON:
+      {
+        "sim_type": "loại_id",
+        "title": "Tiêu đề hấp dẫn",
+        "description": "Mô tả ngắn gọn",
+        "config": {} // Nếu là iframe thì gợi ý link Phet vào field "url"
+      }`;
+
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
+          message: prompt,
+          systemPrompt: "Chỉ trả về JSON hợp lệ, không kèm văn bản thừa."
+        }
+      });
+
+      if (error) throw error;
+
+      const result = typeof data.reply === 'string' ? JSON.parse(data.reply.replace(/```json|```/g, '')) : data.reply;
+
+      setFormSimType(result.sim_type || 'friction');
+      setFormTitle(result.title || '');
+      setFormDesc(result.description || '');
+      setFormConfig(JSON.stringify(result.config || {}, null, 2));
+      toast.success('AI đã hoàn thành tư vấn thiết kế!');
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Lỗi khi tham vấn AI. Thầy hãy thử nhập thủ công nhé.');
+    } finally {
+      setIsConsulting(false);
+    }
+  };
+
+  const openGenerateCodeModal = (lessonId: string) => {
+    const lesson = lessons.find(l => l.id === lessonId);
+    if (!lesson) { toast.error('Không tìm thấy bài học'); return; }
+
+    setPromptLessonId(lessonId);
+    setPromptText(`Viết một file HTML duy nhất (gồm HTML, CSS, JavaScript) để làm mô phỏng tương tác cho bài học: "${lesson.name}" (Lớp ${selectedGrade}).
+Yêu cầu:
+- Thiết kế hiện đại, đẹp, di động (responsive).
+- Nội dung khoa học chính xác theo bài học.
+- Có các nút bấm, thanh trượt hoặc kéo thả để tương tác.
+- Sử dụng CSS nội bộ và JS thuần (hoặc CDN như Framer Motion, GSAP, Chart.js).
+- Chỉ trả về duy nhất code HTML (không văn bản giải thích).
+- Giải thích bài tập/hiện tượng ngay trong giao diện mô phỏng.`);
+    setShowPromptModal(true);
+  };
+
+  const handleGenerateSimulationCode = async () => {
+    const lessonId = promptLessonId;
+    const lesson = lessons.find(l => l.id === lessonId);
+    if (!lesson) { toast.error('Không tìm thấy bài học'); return; }
+
+    setIsGeneratingCode(true);
+    setShowPromptModal(false);
+    try {
+      const prompt = promptText;
+
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
+          message: prompt,
+          systemPrompt: "Bạn là chuyên gia lập trình mô phỏng giáo dục. Chỉ trả về code HTML/JS hoàn chỉnh trong code block."
+        }
+      });
+
+      if (error) throw error;
+
+      let htmlCode = data.reply || "";
+      // Clean markdown code blocks
+      htmlCode = htmlCode.replace(/```html|```/g, '').trim();
+
+      if (!htmlCode.includes('<html') && !htmlCode.includes('<!DOCTYPE')) {
+        throw new Error("AI không trả về code HTML hợp lệ.");
+      }
+
+      // Upload to Supabase Storage
+      const fileName = `ai_gen_${lesson.id}_${Date.now()}.html`;
+      const filePath = `lessons/${fileName}`;
+      const blob = new Blob([htmlCode], { type: 'text/html' });
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('html_lessons')
+        .upload(filePath, blob, { contentType: 'text/html; charset=utf-8' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('html_lessons')
+        .getPublicUrl(filePath);
+
+      setSelectedLesson(lessonId);
+      setEditingId(null);
+      setFormSimType('iframe');
+      setFormTitle(`Mô phỏng: ${lesson.name}`);
+      setFormDesc(`Tạo bởi AI cho bài ${lesson.name}`);
+      setFormConfig(JSON.stringify({ url: publicUrlData.publicUrl }, null, 2));
+      setShowForm(true);
+      toast.success('Đã tạo thành công mô phỏng Custom HTML!');
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Lỗi khi tạo code mô phỏng: ' + err.message);
+    } finally {
+      setIsGeneratingCode(false);
+    }
   };
 
   const handleSave = async () => {
@@ -295,6 +426,8 @@ const AdminSimulationsPage = () => {
           </div>
         </div>
 
+        <ApiConfigCard />
+
         {/* Grade & Filter selector */}
         <div className="flex flex-col sm:flex-row gap-4 mb-4 justify-between">
           <div className="flex gap-2">
@@ -362,14 +495,25 @@ const AdminSimulationsPage = () => {
                       return (
                         <div key={lesson.id} className="border-b border-border last:border-b-0 p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">{lesson.name}</span>
-                            <button
-                              onClick={() => openAddForm(lesson.id)}
-                              className="flex items-center gap-1 text-xs text-primary hover:underline"
-                            >
-                              <MaterialIcon name="add_circle" size={16} />
-                              Thêm mô phỏng
-                            </button>
+                            <span className="text-sm font-medium pr-2 truncate">{lesson.name}</span>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <button
+                                onClick={() => openGenerateCodeModal(lesson.id)}
+                                disabled={isGeneratingCode && promptLessonId === lesson.id}
+                                className="flex items-center justify-center gap-1 text-[11px] font-bold bg-gradient-to-r from-primary to-info text-white px-2 py-1 rounded-md hover:opacity-90 transition-all disabled:opacity-50"
+                                title="AI sẽ viết code tự động"
+                              >
+                                <MaterialIcon name={(isGeneratingCode && promptLessonId === lesson.id) ? "hourglass_empty" : "auto_awesome"} size={14} className={(isGeneratingCode && promptLessonId === lesson.id) ? "animate-spin" : ""} />
+                                Tạo nhanh (AI)
+                              </button>
+                              <button
+                                onClick={() => openAddForm(lesson.id)}
+                                className="flex items-center gap-1 text-[11px] text-primary hover:underline font-medium bg-primary/10 px-2 py-1 rounded-md"
+                              >
+                                <MaterialIcon name="add" size={14} />
+                                Thêm mô phỏng
+                              </button>
+                            </div>
                           </div>
 
                           {lessonSims.length > 0 ? (
@@ -434,6 +578,19 @@ const AdminSimulationsPage = () => {
                   <MaterialIcon name={editingId ? 'edit' : 'add_circle'} size={22} className="text-primary" />
                   {editingId ? 'Chỉnh sửa mô phỏng' : 'Thêm mô phỏng mới'}
                 </h3>
+
+                {!editingId && (
+                  <div className="flex justify-end mb-4">
+                    <button
+                      onClick={handleAiConsultation}
+                      disabled={isConsulting}
+                      className="bg-primary/10 text-primary border border-primary/20 rounded-xl py-2 px-4 text-xs font-bold flex items-center justify-center gap-2 hover:bg-primary/20 transition-all disabled:opacity-50"
+                    >
+                      <MaterialIcon name={isConsulting ? "hourglass_empty" : "lightbulb"} size={16} className={isConsulting ? "animate-spin" : ""} />
+                      {isConsulting ? "Đang phân tích..." : "AI Tư vấn (Gợi ý)"}
+                    </button>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   <div>
@@ -598,6 +755,68 @@ const AdminSimulationsPage = () => {
                     className="flex-1 bg-primary text-primary-foreground px-4 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">
                     Sao chép
                   </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {/* AI Prompt Modal */}
+          {showPromptModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-background rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-border"
+              >
+                <div className="flex justify-between items-center p-4 border-b border-border bg-primary/5">
+                  <h2 className="text-lg font-bold flex items-center gap-2 text-primary">
+                    <MaterialIcon name="auto_awesome" /> Lệnh Tạo Mô phỏng (AI Prompt)
+                  </h2>
+                  <button onClick={() => setShowPromptModal(false)} className="text-muted-foreground hover:text-foreground">
+                    <MaterialIcon name="close" size={24} />
+                  </button>
+                </div>
+
+                <div className="p-5 space-y-4">
+                  <div className="bg-info/10 text-info border border-info/20 p-3 rounded-lg text-sm flex gap-3">
+                    <MaterialIcon name="tips_and_updates" />
+                    <div>
+                      <span className="font-bold">Hệ thống đã tự động chèn bối cảnh bài học.</span> Thầy có thể xem trước, thay đổi, hoặc thêm yêu cầu riêng vào ô bên dưới trước khi yêu cầu AI viết code.
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-semibold mb-1 block">Yêu cầu gửi lên AI (Prompt)</label>
+                    <textarea
+                      value={promptText}
+                      onChange={(e) => setPromptText(e.target.value)}
+                      className="w-full h-48 bg-background border border-input rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-inner font-mono"
+                      placeholder="Nhập yêu cầu cho AI..."
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                    <button
+                      onClick={() => setShowPromptModal(false)}
+                      className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-muted transition-colors"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      onClick={handleGenerateSimulationCode}
+                      disabled={isGeneratingCode}
+                      className="px-6 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-primary to-info text-white shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <MaterialIcon name={isGeneratingCode ? "hourglass_empty" : "send"} size={18} className={isGeneratingCode ? "animate-spin" : ""} />
+                      {isGeneratingCode ? "Đang viết code..." : "Gửi yêu cầu & Tạo mô phỏng"}
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>

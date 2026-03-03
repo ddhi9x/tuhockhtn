@@ -164,7 +164,7 @@ const AdminTheoryPage = () => {
       }
 
       const { error: dbError } = await supabase.from('lesson_theory').upsert({
-        lesson_id: lessonId,
+        lesson_id: String(lessonId),
         lesson_name: lessonName,
         grade,
         chapter_name: chapterName,
@@ -336,13 +336,11 @@ const AdminTheoryPage = () => {
             const stats = statsForGrade(g);
             return (
               <button key={g} onClick={() => { setSelectedGrade(g); setSelectedChapter(''); }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
-                  selectedGrade === g ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}>
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${selectedGrade === g ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}>
                 Lớp {g}
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                  selectedGrade === g ? 'bg-primary-foreground/20' : 'bg-background'
-                }`}>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${selectedGrade === g ? 'bg-primary-foreground/20' : 'bg-background'
+                  }`}>
                   {stats.done}/{stats.total}
                 </span>
               </button>
@@ -365,11 +363,10 @@ const AdminTheoryPage = () => {
                   <div className="flex items-center gap-3">
                     <MaterialIcon name={chapter.icon} size={20} className="text-primary" />
                     <span className="font-medium text-sm">{chapter.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      chapterDone === chapterLessons.length
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${chapterDone === chapterLessons.length
                         ? 'bg-primary/10 text-primary'
                         : 'bg-muted text-muted-foreground'
-                    }`}>
+                      }`}>
                       {chapterDone}/{chapterLessons.length}
                     </span>
                   </div>

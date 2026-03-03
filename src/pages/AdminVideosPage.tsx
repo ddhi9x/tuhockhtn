@@ -34,6 +34,12 @@ const AdminVideosPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingVideo, setEditingVideo] = useState<VideoRecord | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [isConsulting, setIsConsulting] = useState(false);
+
+  // AI Prompt Modal
+  const [showPromptModal, setShowPromptModal] = useState(false);
+  const [promptText, setPromptText] = useState('');
+  const [promptLessonId, setPromptLessonId] = useState('');
 
   // Form state
   const [form, setForm] = useState({
@@ -98,6 +104,58 @@ const AdminVideosPage = () => {
       toast({ title: 'Upload thành công!' });
     }
     setUploading(false);
+  };
+
+  const openConsultationModal = (lessonId: string) => {
+    const info = getLessonInfo(lessonId);
+    if (!info) { toast({ title: 'Chọn bài học', description: 'Vui lòng chọn bài học trước.', variant: 'destructive' }); return; }
+
+    setPromptLessonId(lessonId);
+    setPromptText(`Bạn là chuyên gia tư liệu phim thí nghiệm Khoa học tự nhiên. 
+Bài học: "${info.lessonName}" - Chương: "${info.chapterName}" - Lớp: ${selectedGrade}.
+Hãy đề xuất 1 video thí nghiệm tiêu biểu cho bài này. 
+Trả về JSON:
+{
+  "title": "Tiêu đề video thí nghiệm hấp dẫn",
+  "description": "Mô tả ngắn gọn nội dung cần có trong video (ví dụ: các bước thí nghiệm, hiện tượng quan sát)",
+  "search_keywords": "từ khóa tìm trên YouTube để thầy dễ tìm"
+}`);
+    setShowPromptModal(true);
+  };
+
+  const handleAiConsultation = async () => {
+    const lessonId = promptLessonId;
+    if (!lessonId) return;
+
+    setIsConsulting(true);
+    setShowPromptModal(false);
+
+    try {
+      const prompt = promptText;
+
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
+          message: prompt,
+          systemPrompt: "Chỉ trả về JSON, không kèm văn bản thừa."
+        }
+      });
+
+      if (error) throw error;
+      const result = typeof data.reply === 'string' ? JSON.parse(data.reply.replace(/```json|```/g, '')) : data.reply;
+
+      setForm(prev => ({
+        ...prev,
+        lesson_id: lessonId,
+        title: result.title || '',
+        description: `${result.description || ''}\n(Gợi ý tìm kiếm: ${result.search_keywords || ''})`
+      }));
+      setDialogOpen(true);
+      toast({ title: 'AI đã hoàn thành tư vấn!', description: 'Thầy có thể sử dụng từ khóa gợi ý để tìm video trên YouTube.' });
+    } catch (err) {
+      toast({ title: 'Lỗi AI', description: 'Không thể kết nối với AI lúc này.', variant: 'destructive' });
+    } finally {
+      setIsConsulting(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -206,6 +264,19 @@ const AdminVideosPage = () => {
               <DialogHeader>
                 <DialogTitle>{editingVideo ? 'Sửa video' : 'Thêm video mới'}</DialogTitle>
               </DialogHeader>
+
+              {!editingVideo && (
+                <Button
+                  onClick={() => openConsultationModal(form.lesson_id)}
+                  disabled={isConsulting || !form.lesson_id}
+                  variant="outline"
+                  className="w-full bg-primary/5 text-primary border-primary/20 hover:bg-primary/10 flex items-center gap-2 mb-2"
+                >
+                  <MaterialIcon name={isConsulting ? "hourglass_empty" : "auto_awesome"} size={18} className={isConsulting ? "animate-spin" : ""} />
+                  {isConsulting ? "AI Đang phân tích bài học..." : "AI Tư vấn tìm kiếm video thí nghiệm"}
+                </Button>
+              )}
+
               <div className="space-y-4 pt-2">
                 <div>
                   <label className="text-sm font-medium text-foreground">Bài học *</label>
@@ -314,7 +385,18 @@ const AdminVideosPage = () => {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-foreground truncate">{video.title}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm text-foreground truncate">{video.title}</p>
+                        <button
+                          onClick={() => openConsultationModal(video.lesson_id)}
+                          disabled={isConsulting && promptLessonId === video.lesson_id}
+                          className="flex items-center justify-center gap-1 text-[10px] font-bold bg-gradient-to-r from-primary/80 to-info/80 text-white px-2 py-0.5 rounded-full hover:opacity-100 transition-all disabled:opacity-50"
+                          title="AI tìm video tự động"
+                        >
+                          <MaterialIcon name={(isConsulting && promptLessonId === video.lesson_id) ? "hourglass_empty" : "lightbulb"} size={12} className={(isConsulting && promptLessonId === video.lesson_id) ? "animate-spin" : ""} />
+                          AI Tìm nhanh
+                        </button>
+                      </div>
                       <p className="text-xs text-muted-foreground truncate">{video.lesson_name}</p>
                       {video.duration_seconds && (
                         <span className="text-xs text-muted-foreground">{formatDuration(video.duration_seconds)}</span>
@@ -340,6 +422,58 @@ const AdminVideosPage = () => {
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* AI Prompt Modal */}
+      {showPromptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
+          <div className="bg-background rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-border animate-in zoom-in-95">
+            <div className="flex justify-between items-center p-4 border-b border-border bg-primary/5">
+              <h2 className="text-lg font-bold flex items-center gap-2 text-primary">
+                <MaterialIcon name="auto_awesome" /> Lệnh Tìm Video (AI Prompt)
+              </h2>
+              <button onClick={() => setShowPromptModal(false)} className="text-muted-foreground hover:text-foreground">
+                <MaterialIcon name="close" size={24} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="bg-info/10 text-info border border-info/20 p-3 rounded-lg text-sm flex gap-3">
+                <MaterialIcon name="tips_and_updates" />
+                <div>
+                  <span className="font-bold">Hệ thống đã tự động chèn bối cảnh bài học.</span> Thầy có thể cấu hình thêm điều kiện tìm video (ví dụ: "chỉ tìm video có giải thích tiếng việt") vào ô bên dưới.
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold mb-1 block">Yêu cầu gửi lên AI (Prompt)</label>
+                <textarea
+                  value={promptText}
+                  onChange={(e) => setPromptText(e.target.value)}
+                  className="w-full h-48 bg-background border border-input rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary shadow-inner font-mono"
+                  placeholder="Nhập yêu cầu cho AI..."
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                <button
+                  onClick={() => setShowPromptModal(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-muted transition-colors"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  onClick={handleAiConsultation}
+                  disabled={isConsulting}
+                  className="px-6 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-primary to-info text-white shadow-md hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  <MaterialIcon name={isConsulting ? "hourglass_empty" : "send"} size={18} className={isConsulting ? "animate-spin" : ""} />
+                  {isConsulting ? "Đang phân tích..." : "Gửi yêu cầu"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
