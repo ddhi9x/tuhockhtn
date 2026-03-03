@@ -7,6 +7,7 @@ interface Student {
   student_code: string;
   full_name: string;
   class_name: string;
+  gender: string;
   grade: number;
 }
 
