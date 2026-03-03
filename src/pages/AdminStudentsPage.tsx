@@ -8,6 +8,7 @@ interface Student {
     student_code: string;
     full_name: string;
     birthday: string;
+    class_name: string;
     password: string;
     grade: number;
     created_at: string;
@@ -17,6 +18,7 @@ interface ImportRow {
     student_code: string;
     full_name: string;
     birthday: string;
+    class_name: string;
     password: string;
 }
 
@@ -26,7 +28,7 @@ const AdminStudentsPage = () => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [showImport, setShowImport] = useState(false);
     const [importGrade, setImportGrade] = useState<number>(6);
-    const [importRows, setImportRows] = useState<ImportRow[]>(Array(10).fill({ student_code: '', full_name: '', birthday: '', password: '' }));
+    const [importRows, setImportRows] = useState<ImportRow[]>(Array(15).fill({ student_code: '', full_name: '', birthday: '', class_name: '', password: '' }));
 
     const fetchStudents = async () => {
         setIsLoading(true);
@@ -59,21 +61,29 @@ const AdminStudentsPage = () => {
 
     const handlePaste = (e: React.ClipboardEvent) => {
         const pasteData = e.clipboardData.getData('text');
+        if (!pasteData) return;
+
+        // Split by lines and filter empty ones
         const lines = pasteData.trim().split(/\r?\n/);
+
         const newRows = lines.map(line => {
+            // Split by tab (Excel) or comma
             let parts = line.split('\t');
             if (parts.length < 2) parts = line.split(',');
+
             return {
                 student_code: parts[0]?.trim() || '',
                 full_name: parts[1]?.trim() || '',
                 birthday: parts[2]?.trim() || '',
-                password: parts[3]?.trim() || parts[0]?.trim() || '', // Cột 4 hoặc lấy mã HS làm pass
+                class_name: parts[3]?.trim() || '',
+                password: parts[4]?.trim() || '', // Cột mật khẩu ở cuối cùng
             };
         }).filter(row => row.student_code || row.full_name);
 
         if (newRows.length > 0) {
+            // Automatically adjust the number of rows to match pasted data
             setImportRows(newRows);
-            toast.info(`Đã nhận dữ liệu ${newRows.length} dòng từ Excel`);
+            toast.info(`Đã nhận dữ liệu ${newRows.length} học sinh từ bảng dán vào`);
         }
     };
 
@@ -83,7 +93,7 @@ const AdminStudentsPage = () => {
         setImportRows(updated);
     };
 
-    const addRow = () => setImportRows([...importRows, { student_code: '', full_name: '', birthday: '', password: '' }]);
+    const addRow = () => setImportRows([...importRows, { student_code: '', full_name: '', birthday: '', class_name: '', password: '' }]);
 
     const handleConfirmImport = async () => {
         const validRows = importRows.filter(r => r.student_code && r.full_name);
@@ -94,14 +104,15 @@ const AdminStudentsPage = () => {
 
         setIsProcessing(true);
         try {
-            // Deduplicate by code in memory first
+            // Deduplicate by code in memory (taking the last occurrence if duplicates in paste)
             const uniqueMap = new Map();
             validRows.forEach(row => {
                 uniqueMap.set(row.student_code, {
                     student_code: row.student_code,
                     full_name: row.full_name,
                     birthday: row.birthday,
-                    password: row.password || row.student_code,
+                    class_name: row.class_name,
+                    password: row.password || row.student_code, // Default pass to code if empty
                     grade: importGrade
                 });
             });
@@ -112,12 +123,13 @@ const AdminStudentsPage = () => {
                 .upsert(dataToUpload, { onConflict: 'student_code' }) as any);
 
             if (error) throw error;
-            toast.success(`Đã thành công! Hệ thống đã nhập/cập nhật ${dataToUpload.length} học sinh.`);
+            toast.success(`Thành công! Đã nhập/cập nhật ${dataToUpload.length} tài khoản học sinh.`);
             setShowImport(false);
-            setImportRows(Array(10).fill({ student_code: '', full_name: '', birthday: '', password: '' }));
+            // Reset rows
+            setImportRows(Array(15).fill({ student_code: '', full_name: '', birthday: '', class_name: '', password: '' }));
             fetchStudents();
         } catch (err: any) {
-            toast.error('Lỗi: ' + err.message);
+            toast.error('Có lỗi xảy ra: ' + err.message);
         } finally {
             setIsProcessing(false);
         }
@@ -132,7 +144,7 @@ const AdminStudentsPage = () => {
                         Quản lý học sinh
                     </h1>
                     <p className="text-sm text-slate-500 mt-1">
-                        Tổng cộng <span className="font-bold text-primary">{students.length}</span> học sinh đã đăng ký.
+                        Hệ thống đang quản lý <span className="font-bold text-primary">{students.length}</span> học sinh.
                     </p>
                 </div>
                 <div className="flex gap-3">
@@ -140,8 +152,8 @@ const AdminStudentsPage = () => {
                         onClick={() => setShowImport(true)}
                         className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-2xl text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                     >
-                        <MaterialIcon name="add_to_photos" size={20} />
-                        Thêm & Nhập học sinh
+                        <MaterialIcon name="file_upload" size={20} />
+                        Nhập học sinh (Excel)
                     </button>
                     <button
                         onClick={fetchStudents}
@@ -154,16 +166,16 @@ const AdminStudentsPage = () => {
 
             {showImport && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className="bg-white w-full max-w-5xl max-h-[90vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-300">
+                    <div className="bg-white w-full max-w-6xl max-h-[90vh] rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-300">
                         {/* Modal Header */}
                         <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                                    <MaterialIcon name="grid_on" size={28} />
+                                    <MaterialIcon name="table_chart" size={28} />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold text-slate-900">Bảng Nhập Học Sinh</h2>
-                                    <p className="text-sm text-slate-500">Thầy có thể dán trực tiếp từ Excel vào bảng dưới đây</p>
+                                    <h2 className="text-xl font-bold text-slate-900">Nhập danh sách học sinh</h2>
+                                    <p className="text-sm text-slate-500">Cột: Mã HS - Họ tên - Ngày sinh - Lớp học - Mật khẩu (để trống = Mã HS)</p>
                                 </div>
                             </div>
                             <button onClick={() => setShowImport(false)} className="w-10 h-10 rounded-full hover:bg-slate-200 flex items-center justify-center text-slate-400 transition-colors">
@@ -172,45 +184,53 @@ const AdminStudentsPage = () => {
                         </div>
 
                         <div className="flex-1 overflow-auto p-8 space-y-8">
-                            {/* Settings */}
-                            <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10">
-                                <label className="text-sm font-bold text-slate-700 block mb-4 flex items-center gap-2">
-                                    <MaterialIcon name="category" size={18} className="text-primary" />
-                                    CHỌN KHỐI LỚP CHO DANH SÁCH NÀY
-                                </label>
-                                <div className="flex gap-3">
+                            {/* Settings Card */}
+                            <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                                <div className="md:col-span-1">
+                                    <label className="text-sm font-bold text-slate-700 block mb-1 flex items-center gap-2">
+                                        <MaterialIcon name="stars" size={18} className="text-primary" />
+                                        CHỌN KHỐI LỚP (GRADE)
+                                    </label>
+                                    <p className="text-[11px] text-slate-400">Dành cho việc phân bài tập theo khối</p>
+                                </div>
+                                <div className="md:col-span-2 flex gap-3">
                                     {[6, 7, 8, 9].map(g => (
                                         <button
                                             key={g}
                                             onClick={() => setImportGrade(g)}
-                                            className={`flex-1 py-3.5 rounded-2xl text-base font-bold border transition-all ${importGrade === g ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20 scale-105' : 'bg-white border-slate-200 text-slate-500 hover:border-primary/30'
+                                            className={`flex-1 py-3.5 rounded-2xl text-base font-bold border transition-all ${importGrade === g ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20' : 'bg-white border-slate-200 text-slate-500 hover:border-primary/20'
                                                 }`}
                                         >
-                                            Lớp {g}
+                                            Khối {g}
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* Grid Input */}
+                            {/* Grid Section */}
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                        <MaterialIcon name="edit_note" size={22} className="text-primary" />
-                                        Dữ liệu đầu vào
-                                    </h3>
-                                    <p className="text-xs text-slate-400 italic">Mẹo: Thầy nhấn vào một ô rồi dán (Ctrl+V) để nhập cả bảng</p>
+                                <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                    <div className="flex items-center gap-2">
+                                        <MaterialIcon name="info" size={18} className="text-info" />
+                                        <span className="text-sm font-medium text-slate-600">
+                                            Thầy hãy Copy bảng từ Excel và **Dán (Ctrl+V)** vào ô bất kỳ dưới đây. Số dòng sẽ tự giãn theo dữ liệu của thầy.
+                                        </span>
+                                    </div>
+                                    <div className="px-3 py-1 bg-primary/10 text-primary text-xs font-bold rounded-lg uppercase">
+                                        Mới nhất
+                                    </div>
                                 </div>
 
                                 <div className="border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
                                     <table className="w-full text-sm border-collapse">
                                         <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                                             <tr>
-                                                <th className="w-12 px-2 py-3 text-center border-r border-slate-200">#</th>
-                                                <th className="px-4 py-3 text-left border-r border-slate-200">Mã học sinh</th>
-                                                <th className="px-4 py-3 text-left border-r border-slate-200">Họ và tên</th>
-                                                <th className="px-4 py-3 text-left border-r border-slate-200">Ngày sinh</th>
-                                                <th className="px-4 py-3 text-left">Mật khẩu</th>
+                                                <th className="w-12 px-2 py-4 text-center border-r border-slate-200">#</th>
+                                                <th className="px-4 py-4 text-left border-r border-slate-200">1. Mã học sinh</th>
+                                                <th className="px-4 py-4 text-left border-r border-slate-200">2. Họ và tên</th>
+                                                <th className="px-4 py-4 text-left border-r border-slate-200">3. Ngày sinh</th>
+                                                <th className="px-4 py-4 text-left border-r border-slate-200">4. Lớp cụ thể (VD: 8A1)</th>
+                                                <th className="px-4 py-4 text-left bg-slate-100/50">5. Mật khẩu (Nếu có)</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100" onPaste={handlePaste}>
@@ -221,32 +241,40 @@ const AdminStudentsPage = () => {
                                                         <input
                                                             value={row.student_code}
                                                             onChange={e => updateRow(idx, 'student_code', e.target.value)}
-                                                            placeholder="241..."
-                                                            className="w-full h-10 px-3 bg-transparent border-0 focus:bg-white focus:ring-1 focus:ring-primary rounded-lg transition-all"
+                                                            placeholder="Mã số..."
+                                                            className="w-full h-11 px-3 bg-transparent border-0 focus:bg-white focus:ring-2 focus:ring-primary/20 rounded-xl transition-all font-mono"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-slate-200">
                                                         <input
                                                             value={row.full_name}
                                                             onChange={e => updateRow(idx, 'full_name', e.target.value)}
-                                                            placeholder="Nguyễn Văn A"
-                                                            className="w-full h-10 px-3 bg-transparent border-0 focus:bg-white focus:ring-1 focus:ring-primary rounded-lg transition-all"
+                                                            placeholder="Họ và tên..."
+                                                            className="w-full h-11 px-3 bg-transparent border-0 focus:bg-white focus:ring-2 focus:ring-primary/20 rounded-xl transition-all font-semibold"
                                                         />
                                                     </td>
                                                     <td className="p-1 border-r border-slate-200">
                                                         <input
                                                             value={row.birthday}
                                                             onChange={e => updateRow(idx, 'birthday', e.target.value)}
-                                                            placeholder="01/01/2010"
-                                                            className="w-full h-10 px-3 bg-transparent border-0 focus:bg-white focus:ring-1 focus:ring-primary rounded-lg transition-all"
+                                                            placeholder="dd/mm/yyyy"
+                                                            className="w-full h-11 px-3 bg-transparent border-0 focus:bg-white focus:ring-2 focus:ring-primary/20 rounded-xl transition-all"
                                                         />
                                                     </td>
-                                                    <td className="p-1">
+                                                    <td className="p-1 border-r border-slate-200">
+                                                        <input
+                                                            value={row.class_name}
+                                                            onChange={e => updateRow(idx, 'class_name', e.target.value)}
+                                                            placeholder="Lớp..."
+                                                            className="w-full h-11 px-3 bg-transparent border-0 focus:bg-white focus:ring-2 focus:ring-primary/20 rounded-xl transition-all uppercase"
+                                                        />
+                                                    </td>
+                                                    <td className="p-1 bg-slate-50/30">
                                                         <input
                                                             value={row.password}
                                                             onChange={e => updateRow(idx, 'password', e.target.value)}
-                                                            placeholder="Để trống = Mã HS"
-                                                            className="w-full h-10 px-3 bg-transparent border-0 focus:bg-white focus:ring-1 focus:ring-primary rounded-lg transition-all"
+                                                            placeholder="Để trống = MHS"
+                                                            className="w-full h-11 px-3 bg-transparent border-0 focus:bg-white focus:ring-2 focus:ring-primary/20 rounded-xl transition-all text-slate-400"
                                                         />
                                                     </td>
                                                 </tr>
@@ -254,94 +282,109 @@ const AdminStudentsPage = () => {
                                         </tbody>
                                     </table>
                                 </div>
-                                <button
-                                    onClick={addRow}
-                                    className="flex items-center gap-2 text-primary text-sm font-bold hover:underline py-2"
-                                >
-                                    <MaterialIcon name="add" size={18} />
-                                    Thêm dòng mới
-                                </button>
+                                <div className="flex justify-between items-center">
+                                    <p className="text-xs text-slate-400 font-medium tracking-wide">*(Hệ thống sẽ tự nhận diện dòng khi dán nội dung từ clipboard)</p>
+                                    <button
+                                        onClick={addRow}
+                                        className="flex items-center gap-2 text-primary text-sm font-bold hover:bg-primary/10 px-4 py-2 rounded-xl transition-colors"
+                                    >
+                                        <MaterialIcon name="add" size={18} />
+                                        Thêm dòng thủ công
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
                         {/* Modal Footer */}
-                        <div className="p-8 border-t border-slate-100 bg-white flex items-center justify-end gap-3">
+                        <div className="p-8 border-t border-slate-100 bg-white flex items-center justify-end gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
                             <button
                                 onClick={() => setShowImport(false)}
                                 className="px-6 py-3.5 rounded-2xl text-slate-500 font-bold hover:bg-slate-100 transition-colors"
                             >
-                                Hủy bỏ
+                                Đóng lại
                             </button>
                             <button
                                 onClick={handleConfirmImport}
                                 disabled={isProcessing}
-                                className="px-8 py-3.5 bg-primary text-white rounded-2xl font-bold shadow-xl shadow-primary/20 flex items-center gap-3 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                                className="px-10 py-3.5 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/25 flex items-center gap-3 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 tracking-wide"
                             >
-                                {isProcessing ? <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin" /> : <MaterialIcon name="verified" size={22} />}
-                                XÁC NHẬN NHẬP DỮ LIỆU
+                                {isProcessing ? <div className="w-5 h-5 border-4 border-white border-t-transparent rounded-full animate-spin" /> : <MaterialIcon name="cloud_done" size={24} />}
+                                GHI DỮ LIỆU LÊN HỆ THỐNG
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Main Table Display */}
-            <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-xl shadow-slate-200/40">
+            {/* Main Students List */}
+            <div className="bg-white border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200/50">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50/80 text-[11px] font-bold uppercase tracking-widest text-slate-400 border-b border-slate-100">
-                                <th className="px-8 py-5">Mã học sinh</th>
-                                <th className="px-8 py-5">Họ và tên</th>
-                                <th className="px-8 py-5">Ngày sinh</th>
-                                <th className="px-8 py-5">Khối lớp</th>
-                                <th className="px-8 py-5 text-right">Lệnh</th>
+                            <tr className="bg-slate-50/50 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 border-b border-slate-100">
+                                <th className="px-8 py-6">Thẻ học sinh</th>
+                                <th className="px-8 py-6">Ngày sinh</th>
+                                <th className="px-8 py-6">Lớp học</th>
+                                <th className="px-8 py-6">Phân khối</th>
+                                <th className="px-8 py-6 text-right">Tùy chỉnh</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={5} className="px-8 py-24 text-center">
-                                        <div className="flex flex-col items-center gap-4">
-                                            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                                            <p className="text-slate-400 font-medium tracking-wide">Đang quét dữ liệu học sinh...</p>
+                                    <td colSpan={5} className="px-8 py-32 text-center">
+                                        <div className="flex flex-col items-center gap-5">
+                                            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                                            <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Đang tải danh sách học sinh...</p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : students.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-8 py-24 text-center">
-                                        <div className="opacity-20 flex flex-col items-center gap-3">
-                                            <MaterialIcon name="groups" size={64} />
-                                            <p className="text-xl font-bold">Chưa có học sinh nào</p>
+                                    <td colSpan={5} className="px-8 py-32 text-center">
+                                        <div className="opacity-10 flex flex-col items-center gap-4">
+                                            <MaterialIcon name="groups_2" size={80} />
+                                            <p className="text-2xl font-black uppercase tracking-tighter">Chưa có dữ liệu</p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : (
                                 students.map(student => (
-                                    <tr key={student.id} className="group hover:bg-slate-50/50 transition-colors duration-200">
+                                    <tr key={student.id} className="group hover:bg-slate-50/40 transition-all duration-300">
                                         <td className="px-8 py-5">
-                                            <code className="text-primary font-bold bg-primary/5 px-3 py-1.5 rounded-xl text-sm border border-primary/10 tracking-tight">{student.student_code}</code>
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center font-black text-primary border border-primary/10 tracking-tighter">
+                                                    {student.student_code.slice(-2)}
+                                                </div>
+                                                <div>
+                                                    <p className="font-black text-slate-900 text-[15px] leading-none mb-1.5">{student.full_name}</p>
+                                                    <code className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">{student.student_code}</code>
+                                                </div>
+                                            </div>
                                         </td>
                                         <td className="px-8 py-5">
-                                            <p className="font-bold text-slate-800 text-[15px]">{student.full_name}</p>
-                                            <p className="text-[11px] text-slate-400 font-mono mt-0.5">ID: {student.id.slice(0, 8)}</p>
-                                        </td>
-                                        <td className="px-8 py-5 font-medium text-slate-600">
-                                            {student.birthday || '---'}
+                                            <div className="flex items-center gap-2 text-slate-500 font-bold text-sm">
+                                                <MaterialIcon name="calendar_today" size={16} className="text-slate-300" />
+                                                {student.birthday || 'Chưa cập nhật'}
+                                            </div>
                                         </td>
                                         <td className="px-8 py-5">
-                                            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-extrabold bg-info/10 text-info uppercase tracking-wider">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-info" />
-                                                Lớp {student.grade}
+                                            <span className={`px-3 py-1 rounded-xl text-[12px] font-black uppercase ${student.class_name ? 'bg-success/10 text-success' : 'bg-slate-100 text-slate-400'}`}>
+                                                {student.class_name || 'N/A'}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-5">
+                                            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl text-[11px] font-black bg-primary/5 text-primary border border-primary/10">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                                KHỐI {student.grade}
                                             </span>
                                         </td>
                                         <td className="px-8 py-5 text-right">
                                             <button
                                                 onClick={() => handleDelete(student.id)}
-                                                className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-destructive hover:bg-destructive/10 rounded-2xl transition-all"
+                                                className="w-11 h-11 flex items-center justify-center text-slate-300 hover:text-white hover:bg-destructive rounded-2xl transition-all shadow-none hover:shadow-lg hover:shadow-destructive/30"
                                             >
-                                                <MaterialIcon name="delete_outline" size={20} />
+                                                <MaterialIcon name="person_remove" size={20} />
                                             </button>
                                         </td>
                                     </tr>

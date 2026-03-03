@@ -58,7 +58,7 @@ const Header = () => {
               {isAdmin ? (user?.user_metadata?.display_name || 'Giáo viên') : (student?.full_name || state.profile.name)}
             </p>
             <p className="text-[10px] font-medium text-primary leading-none uppercase tracking-wider">
-              {isAdmin ? 'Quản trị viên' : `Học sinh - Lớp ${student?.grade || state.profile.grade}`}
+              {isAdmin ? 'Quản trị viên' : `Học sinh - Lớp ${student?.class_name || student?.grade || state.profile.grade}`}
             </p>
           </div>
         </div>
