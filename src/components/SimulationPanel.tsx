@@ -513,32 +513,36 @@ const SimulationPanel: React.FC<SimulationPanelProps> = ({ lessonId, lessonName,
   const SimComponent = comp.component;
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Header with sim selector if multiple */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <MaterialIcon name="science" size={22} className="text-primary" />
+    <div className="w-full max-w-none">
+      <div className="px-6">
+        {/* Header with sim selector if multiple */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <MaterialIcon name="science" size={22} className="text-primary" />
+          </div>
+          <div className="flex-1">
+            <h2 className="font-bold">{currentSim.title}</h2>
+            {currentSim.description && <p className="text-xs text-muted-foreground">{currentSim.description}</p>}
+          </div>
         </div>
-        <div className="flex-1">
-          <h2 className="font-bold">{currentSim.title}</h2>
-          {currentSim.description && <p className="text-xs text-muted-foreground">{currentSim.description}</p>}
-        </div>
+
+        {/* Tabs if multiple simulations */}
+        {simEntries.length > 1 && (
+          <div className="flex gap-1 mb-6 overflow-x-auto pb-1">
+            {simEntries.map((sim, i) => (
+              <button key={sim.id} onClick={() => setActiveSimIndex(i)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${activeSimIndex === i ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}>
+                {sim.title}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Tabs if multiple simulations */}
-      {simEntries.length > 1 && (
-        <div className="flex gap-1 mb-6 overflow-x-auto pb-1">
-          {simEntries.map((sim, i) => (
-            <button key={sim.id} onClick={() => setActiveSimIndex(i)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${activeSimIndex === i ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}>
-              {sim.title}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <SimComponent lessonId={lessonId} config={currentSim.config} />
+      <div className="w-full">
+        <SimComponent lessonId={lessonId} config={currentSim.config} />
+      </div>
     </div>
   );
 };
