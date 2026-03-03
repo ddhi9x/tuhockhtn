@@ -144,12 +144,30 @@ const ApiConfigCard = () => {
                         </button>
                     </div>
 
-                    <div className="mt-4 flex gap-3 text-xs text-muted-foreground leading-relaxed bg-black/5 dark:bg-white/5 p-3 rounded-lg">
-                        <MaterialIcon name="info" size={16} className="text-primary shrink-0 mt-0.5" />
-                        <div>
-                            Mọi tính năng AI (Viết code mô phỏng, Gợi ý video, Soạn lý thuyết, Gia sư...) sẽ dùng chung khóa này.
-                            Nếu bạn chưa có API Key, lấy miễn phí tại <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">Google AI Studio</a>.
+                    <div className="mt-4 space-y-3">
+                        <div className="flex gap-3 text-xs text-muted-foreground leading-relaxed bg-black/5 dark:bg-white/5 p-3 rounded-lg">
+                            <MaterialIcon name="info" size={16} className="text-primary shrink-0 mt-0.5" />
+                            <div>
+                                Mọi tính năng AI (Viết code mô phỏng, Gợi ý video, Soạn lý thuyết, Gia sư...) sẽ dùng chung khóa này.
+                                Nếu bạn chưa có API Key, lấy miễn phí tại <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">Google AI Studio</a>.
+                            </div>
                         </div>
+
+                        <details className="bg-info/5 border border-info/20 rounded-lg overflow-hidden">
+                            <summary className="px-4 py-2.5 text-xs font-bold text-info cursor-pointer hover:bg-info/10 flex items-center gap-2">
+                                <MaterialIcon name="help" size={16} />
+                                📖 Hướng dẫn lấy API Key Gemini (miễn phí)
+                            </summary>
+                            <div className="px-4 py-3 border-t border-info/10 text-xs text-muted-foreground space-y-2 leading-relaxed">
+                                <p><strong>Bước 1:</strong> Truy cập <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">aistudio.google.com/app/apikey</a></p>
+                                <p><strong>Bước 2:</strong> Đăng nhập bằng tài khoản Google (Gmail) của thầy.</p>
+                                <p><strong>Bước 3:</strong> Bấm nút <strong>"Create API Key"</strong> (Tạo khóa API).</p>
+                                <p><strong>Bước 4:</strong> Chọn <strong>"Create API key in new project"</strong> → Một chuỗi ký tự dài sẽ xuất hiện (bắt đầu bằng <code>AIza...</code>).</p>
+                                <p><strong>Bước 5:</strong> Sao chép (Copy) chuỗi đó và dán vào ô phía trên → Bấm <strong>"Lưu khóa API"</strong>.</p>
+                                <p className="text-info font-medium pt-1">✅ Xong! Tất cả tính năng AI sẽ hoạt động ngay lập tức.</p>
+                                <p className="text-warning-foreground bg-warning/10 p-2 rounded-md mt-1">⚠️ <strong>Lưu ý:</strong> API Key miễn phí có giới hạn 15 requests/phút. Nếu dùng nhiều, thầy có thể nâng cấp lên trả phí tại Google Cloud Console.</p>
+                            </div>
+                        </details>
                     </div>
                 </div>
             )}

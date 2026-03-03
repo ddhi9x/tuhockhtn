@@ -6,15 +6,12 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import ApiConfigCard from '@/components/ApiConfigCard';
 
-// Available simulation types that are built into the app
+// Available simulation types
 const SIM_TYPES = [
-  { id: 'friction', label: '⚙️ Lực ma sát', subject: 'physics' },
-  { id: 'circuit', label: '⚡ Mạch điện (Ohm)', subject: 'physics' },
-  { id: 'ph_scale', label: '🧪 Thang đo pH', subject: 'chemistry' },
-  { id: 'atom', label: '⚛️ Cấu tạo Nguyên tử', subject: 'chemistry' },
-  { id: 'states_of_matter', label: '🌡️ Các thể của chất', subject: 'chemistry' },
-  { id: 'cell', label: '🔬 Cấu tạo Tế bào', subject: 'biology' },
   { id: 'iframe', label: '🖼️ Iframe (HTML ngoài)', subject: 'general' },
+  { id: 'custom_html', label: '🤖 Custom HTML (AI tạo)', subject: 'general' },
+  { id: 'embed', label: '📎 Nhúng web (PhET, GeoGebra...)', subject: 'general' },
+  { id: 'video_sim', label: '🎬 Video mô phỏng', subject: 'general' },
 ];
 
 interface SimRecord {
@@ -48,7 +45,7 @@ const AdminSimulationsPage = () => {
   const [dupLesson, setDupLesson] = useState('');
 
   // Form state
-  const [formSimType, setFormSimType] = useState('friction');
+  const [formSimType, setFormSimType] = useState('iframe');
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formConfig, setFormConfig] = useState('{}');
@@ -153,7 +150,7 @@ const AdminSimulationsPage = () => {
 
       const result = typeof data.reply === 'string' ? JSON.parse(data.reply.replace(/```json|```/g, '')) : data.reply;
 
-      setFormSimType(result.sim_type || 'friction');
+      setFormSimType(result.sim_type || 'iframe');
       setFormTitle(result.title || '');
       setFormDesc(result.description || '');
       setFormConfig(JSON.stringify(result.config || {}, null, 2));
