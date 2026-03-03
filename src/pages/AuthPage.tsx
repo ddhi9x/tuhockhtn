@@ -5,137 +5,185 @@ import { supabase } from '@/integrations/supabase/client';
 import MaterialIcon from '@/components/MaterialIcon';
 import { toast } from 'sonner';
 
+type AuthMode = 'student' | 'admin';
+
 const AuthPage = () => {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<AuthMode>('student');
+  const [studentCode, setStudentCode] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const { signIn, signInByStudentCode } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    if (mode === 'login') {
-      const { error } = await signIn(email, password);
-      if (error) {
-        toast.error(error.message === 'Invalid login credentials'
-          ? 'Email hoặc mật khẩu không đúng'
-          : error.message);
-      } else {
-        toast.success('Đăng nhập thành công!');
-        navigate('/');
-      }
-    } else {
-      if (!displayName.trim()) {
-        toast.error('Vui lòng nhập tên hiển thị');
-        setLoading(false);
-        return;
-      }
-      const { error } = await signUp(email, password, displayName);
+    if (mode === 'student') {
+      const { error } = await signInByStudentCode(studentCode, password);
       if (error) {
         toast.error(error.message);
       } else {
-        toast.success('Đăng ký thành công! Kiểm tra email để xác nhận tài khoản.');
+        toast.success('Đăng nhập học sinh thành công!');
+        navigate('/');
+      }
+    } else {
+      const { error } = await signIn(email, password);
+      if (error) {
+        toast.error(error.message === 'Invalid login credentials'
+          ? 'Email hoặc mật khẩu giáo viên không đúng'
+          : error.message);
+      } else {
+        toast.success('Đăng nhập giáo viên thành công!');
+        navigate('/');
       }
     }
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      {/* Background patterns */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-info/20 blur-[120px]" />
+      </div>
+
+      <div className="w-full max-w-[440px] relative">
+        {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4">
-            <MaterialIcon name="school" size={32} className="text-primary-foreground" />
+          <div className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-xl shadow-primary/20 transform hover:scale-105 transition-transform duration-300">
+            <MaterialIcon name="auto_stories" size={40} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Tự học KHTN</h1>
-          <p className="text-sm text-muted-foreground mt-1">Phát triển bởi thầy Dương Đức Hiếu</p>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">KHTN Học liệu điện tử</h1>
+          <p className="text-slate-500 mt-2 font-medium">Hệ thống tự học Khoa học tự nhiên THCS</p>
         </div>
 
-        {/* Form */}
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-lg">
-          {/* Tabs */}
-          <div className="flex bg-muted rounded-xl p-1 mb-6">
-            {(['login', 'signup'] as const).map(m => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                  mode === m
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+        {/* Auth Card */}
+        <div className="bg-white border border-slate-200 rounded-[2rem] p-8 shadow-2xl shadow-slate-200/50">
+          {/* Role Selector */}
+          <div className="flex bg-slate-100/80 p-1.5 rounded-2xl mb-8">
+            <button
+              onClick={() => setMode('student')}
+              className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 ${mode === 'student'
+                  ? 'bg-white text-primary shadow-sm ring-1 ring-slate-200'
+                  : 'text-slate-500 hover:text-slate-700'
                 }`}
-              >
-                {m === 'login' ? 'Đăng nhập' : 'Đăng ký'}
-              </button>
-            ))}
+            >
+              <MaterialIcon name="school" size={20} />
+              Học sinh
+            </button>
+            <button
+              onClick={() => setMode('admin')}
+              className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 ${mode === 'admin'
+                  ? 'bg-white text-primary shadow-sm ring-1 ring-slate-200'
+                  : 'text-slate-500 hover:text-slate-700'
+                }`}
+            >
+              <MaterialIcon name="admin_panel_settings" size={20} />
+              Giáo viên
+            </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'signup' && (
-              <div>
-                <label className="text-sm font-medium text-foreground block mb-1.5">Tên hiển thị</label>
-                <input
-                  type="text"
-                  value={displayName}
-                  onChange={e => setDisplayName(e.target.value)}
-                  placeholder="VD: Nguyễn Văn A"
-                  className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  required
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {mode === 'student' ? (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700 ml-1">Mã học sinh (MHS)</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <MaterialIcon name="badge" size={20} className="text-slate-400 group-focus-within:text-primary transition-colors" />
+                    </div>
+                    <input
+                      type="text"
+                      value={studentCode}
+                      onChange={e => setStudentCode(e.target.value)}
+                      placeholder="Nhập mã học sinh của bạn..."
+                      className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all placeholder:text-slate-300"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700 ml-1">Mật khẩu</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <MaterialIcon name="lock" size={20} className="text-slate-400 group-focus-within:text-primary transition-colors" />
+                    </div>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="Mặc định là mã học sinh..."
+                      className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all placeholder:text-slate-300"
+                      required
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700 ml-1">Email giáo viên</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <MaterialIcon name="alternate_email" size={20} className="text-slate-400 group-focus-within:text-primary transition-colors" />
+                    </div>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder="Nhập email giáo viên..."
+                      className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all placeholder:text-slate-300"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700 ml-1">Mật khẩu</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <MaterialIcon name="vpn_key" size={20} className="text-slate-400 group-focus-within:text-primary transition-colors" />
+                    </div>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="Nhập mật khẩu truy cập..."
+                      className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-base focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all placeholder:text-slate-300"
+                      required
+                    />
+                  </div>
+                </div>
+              </>
             )}
-
-            <div>
-              <label className="text-sm font-medium text-foreground block mb-1.5">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="email@example.com"
-                className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-foreground block mb-1.5">Mật khẩu</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="Tối thiểu 6 ký tự"
-                className="w-full px-4 py-3 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                required
-                minLength={6}
-              />
-            </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-primary-foreground py-3 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-primary text-primary-foreground py-4 rounded-2xl text-base font-bold shadow-lg shadow-primary/20 hover:opacity-95 transform active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3 mt-4"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                <div className="w-6 h-6 border-3 border-primary-foreground border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <MaterialIcon name={mode === 'login' ? 'login' : 'person_add'} size={18} />
-                  {mode === 'login' ? 'Đăng nhập' : 'Đăng ký'}
+                  <MaterialIcon name="login" size={24} />
+                  Đăng nhập hệ thống
                 </>
               )}
             </button>
+          </form>
 
-            {mode === 'login' && (
+          {mode === 'admin' && (
+            <div className="mt-8 pt-6 border-t border-slate-100">
               <button
                 type="button"
                 onClick={async () => {
                   if (!email) {
-                    toast.error('Vui lòng nhập email trước');
+                    toast.error('Vui lòng nhập email giáo viên trước');
                     return;
                   }
                   const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -144,20 +192,29 @@ const AuthPage = () => {
                   if (error) {
                     toast.error(error.message);
                   } else {
-                    toast.success('Đã gửi email đặt lại mật khẩu! Kiểm tra hộp thư của bạn.');
+                    toast.success('Đã gửi email khôi phục! Vui lòng kiểm tra hộp thư.');
                   }
                 }}
-                className="w-full text-sm text-primary hover:underline"
+                className="w-full text-sm font-medium text-slate-500 hover:text-primary transition-colors flex items-center justify-center gap-1.5"
               >
-                Quên mật khẩu?
+                <MaterialIcon name="help_outline" size={16} />
+                Quên mật khẩu giáo viên?
               </button>
-            )}
-          </form>
+            </div>
+          )}
         </div>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          Phát triển bởi Thầy Dương Đức Hiếu
-        </p>
+        <div className="text-center mt-10">
+          <p className="text-sm text-slate-400 font-medium flex items-center justify-center gap-1.5">
+            <MaterialIcon name="verified_user" size={16} className="text-success" />
+            Mã học sinh được cấp bởi nhà trường
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-4 text-xs font-bold text-slate-300 uppercase tracking-widest">
+            <span>Phiên bản 2.0</span>
+            <span className="w-1 h-1 rounded-full bg-slate-300" />
+            <span>Thầy Dương Đức Hiếu</span>
+          </div>
+        </div>
       </div>
     </div>
   );

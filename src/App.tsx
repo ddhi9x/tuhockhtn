@@ -19,6 +19,7 @@ import AdminSimulationsPage from "@/pages/AdminSimulationsPage";
 import AdminTheoryPage from "@/pages/AdminTheoryPage";
 import AdminExercisesPage from "@/pages/AdminExercisesPage";
 import AdminVideosPage from "@/pages/AdminVideosPage";
+import AdminStudentsPage from "@/pages/AdminStudentsPage";
 import ExamPage from "@/pages/ExamPage";
 import AuthPage from "@/pages/AuthPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
@@ -27,9 +28,9 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuth();
+  const { user, student, isLoading } = useAuth();
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user && !student) return <Navigate to="/auth" replace />;
   return <>{children}</>;
 };
 
@@ -66,6 +67,7 @@ const App = () => (
                 <Route path="/admin" element={<AdminRoute><AdminSimulationsPage /></AdminRoute>} />
                 <Route path="/admin/theory" element={<AdminRoute><AdminTheoryPage /></AdminRoute>} />
                 <Route path="/admin/exercises" element={<AdminRoute><AdminExercisesPage /></AdminRoute>} />
+                <Route path="/admin/students" element={<AdminRoute><AdminStudentsPage /></AdminRoute>} />
                 <Route path="/admin/videos" element={<AdminRoute><AdminVideosPage /></AdminRoute>} />
               </Route>
               <Route path="*" element={<NotFound />} />

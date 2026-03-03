@@ -80,6 +80,7 @@ const Sidebar = () => {
             <NavButton path="/admin" label="Kho Mô phỏng / HTML" icon="admin_panel_settings" />
             <NavButton path="/admin/theory" label="Lý thuyết" icon="menu_book" />
             <NavButton path="/admin/exercises" label="Kho bài tập" icon="quiz" />
+            <NavButton path="/admin/students" label="Quản lý học sinh" icon="people" />
             <NavButton path="/admin/videos" label="Kho video" icon="video_library" />
           </>
         )}
