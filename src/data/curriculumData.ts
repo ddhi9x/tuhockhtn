@@ -3,6 +3,7 @@
 export interface Lesson {
   id: string;
   name: string;
+  summary?: string;
 }
 
 export interface Chapter {
@@ -12,6 +13,13 @@ export interface Chapter {
   subject: 'physics' | 'chemistry' | 'biology' | 'general';
   lessons: Lesson[];
 }
+
+export const subjectColors: Record<string, string> = {
+  physics: 'bg-info/10 text-info',
+  chemistry: 'bg-success/10 text-success',
+  biology: 'bg-warning/10 text-warning',
+  general: 'bg-primary/10 text-primary',
+};
 
 export interface GradeCurriculum {
   grade: number;
