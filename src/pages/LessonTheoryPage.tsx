@@ -627,7 +627,7 @@ const LessonTheoryPage = () => {
       </div>
 
       {/* Content */}
-      <div className={`flex-1 overflow-y-auto scrollbar-thin ${activeTab === 'theory' ? 'p-6' : 'p-2 sm:p-4'}`}>
+      <div className={`flex-1 overflow-y-auto scrollbar-thin ${activeTab === 'theory' ? 'p-6' : 'p-0'}`}>
         <AnimatePresence mode="wait">
           {activeTab === 'theory' ? (
             <motion.div key="theory" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
