@@ -47,20 +47,20 @@ Trả về JSON array, mỗi phần tử có: question, options (array 4 strings
     const userPrompt = `Tạo ${count} câu hỏi trắc nghiệm lớp ${grade} cho bài "${lessonName}" (Chương ${chapterName}).`;
 
     if (GEMINI_API_KEY) {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
           systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: { responseMimeType: "application/json" }
+          generationConfig: { temperature: 0.7 }
         }),
       });
 
       if (!response.ok) {
         const err = await response.text();
         console.error("Gemini Quiz error:", err);
-        throw new Error("Lỗi gọi Gemini API cho bài tập");
+        throw new Error(`Gemini API Error: ${err}`);
       }
 
       const data = await response.json();
@@ -125,10 +125,11 @@ Trả về JSON array, mỗi phần tử có: question, options (array 4 strings
     }
 
     throw new Error("Không thể phân tích câu hỏi");
-  } catch (e) {
+  } catch (e: any) {
     console.error("generate-quiz error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Đổi về status 200 để Frontend hiển thị trọn vẹn thông báo lỗi thay vì văng Exception
+    return new Response(JSON.stringify({ error: `Lỗi Backend: ${e.message}`, stack: e.stack }), {
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
