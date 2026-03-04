@@ -49,6 +49,7 @@ interface ParsedSection {
   bullets: string[];
   examples: string[];
   definition?: string;
+  rawText: string; // The original markdown for this section
 }
 
 // Extract clean text content from potentially JSON-wrapped data
@@ -120,29 +121,36 @@ const parseToSections = (text: string): ParsedSection[] => {
   const lines = text.split('\n');
   const sections: ParsedSection[] = [];
   let current: ParsedSection | null = null;
+  let currentRawLines: string[] = [];
+
+  const pushCurrent = () => {
+    if (current && (current.bullets.length > 0 || current.definition || current.examples.length > 0)) {
+      current.rawText = currentRawLines.join('\n');
+      sections.push(current);
+    }
+  };
 
   for (const line of lines) {
     const trimmed = line.trim();
 
     if (/^#{2,4}\s+/.test(trimmed)) {
-      if (current && (current.bullets.length > 0 || current.definition || current.examples.length > 0)) {
-        sections.push(current);
-      }
+      pushCurrent();
       const title = trimmed.replace(/^#{2,4}\s+/, '').replace(/^\d+\.\s*/, '');
-      current = { title, emoji: getTopicEmoji(title), bullets: [], examples: [], definition: undefined };
+      current = { title, emoji: getTopicEmoji(title), bullets: [], examples: [], definition: undefined, rawText: '' };
+      currentRawLines = [line];
     } else if (trimmed.startsWith('# ')) {
-      // Skip H1
-    } else if (trimmed && current) {
+      // Skip H1 but record it if it's the very first part of content?
+      // For now skip.
+    } else if (current) {
+      currentRawLines.push(line);
       // Check if it's a bullet point
       if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
         const text = trimmed.replace(/^[-*•]\s*/, '');
         current.bullets.push(text);
       }
-      // Check if it's an example
       else if (trimmed.toLowerCase().startsWith('ví dụ') || trimmed.startsWith('**ví dụ')) {
         current.examples.push(trimmed.replace(/^\*\*ví dụ[^*]*\*\*:?\s*/i, '').replace(/^ví dụ:?\s*/i, ''));
       }
-      // Check if it's a definition (bold text)
       else if (trimmed.startsWith('**') && trimmed.includes('**') && trimmed.length < 300) {
         if (!current.definition) {
           current.definition = trimmed.replace(/\*\*/g, '');
@@ -150,12 +158,9 @@ const parseToSections = (text: string): ParsedSection[] => {
           current.bullets.push(trimmed);
         }
       }
-      // Regular paragraph - summarize into bullets
       else if (trimmed.length > 20) {
-        // Split long paragraphs into key sentences
         const sentences = trimmed.split(/(?<=[.!?])\s+/).filter(s => s.length > 15);
         if (sentences.length > 2) {
-          // Take key sentences as bullets (max 3 per paragraph)
           sentences.slice(0, 3).forEach(s => current!.bullets.push(s));
         } else {
           current.bullets.push(trimmed);
@@ -163,10 +168,7 @@ const parseToSections = (text: string): ParsedSection[] => {
       }
     }
   }
-  if (current && (current.bullets.length > 0 || current.definition || current.examples.length > 0)) {
-    sections.push(current);
-  }
-
+  pushCurrent();
   return sections;
 };
 
@@ -183,12 +185,13 @@ const renderInline = (text: string) => {
 };
 
 // Visual section card component
-const SectionCard = ({ section, index, illustrationUrl, onGenerateIllustration, onUploadIllustration, onDeleteIllustration, isGenerating, fs }: {
+const SectionCard = ({ section, index, illustrationUrl, onGenerateIllustration, onUploadIllustration, onDeleteIllustration, onEdit, isGenerating, fs }: {
   section: ParsedSection; index: number;
   illustrationUrl?: string;
   onGenerateIllustration?: () => void;
   onUploadIllustration?: (file: File) => void;
   onDeleteIllustration?: () => void;
+  onEdit?: () => void;
   isGenerating?: boolean;
   fs: typeof FONT_SIZES[0];
 }) => {
@@ -212,9 +215,20 @@ const SectionCard = ({ section, index, illustrationUrl, onGenerateIllustration, 
         <div className="flex-1 min-w-0">
           <h3 className={`${fs.heading} font-bold text-foreground leading-tight`}>{section.title}</h3>
         </div>
-        <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${style.accent} text-white tracking-wider`}>
-          {index + 1}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+              title="Sửa nội dung này"
+            >
+              <MaterialIcon name="border_color" size={16} />
+            </button>
+          )}
+          <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${style.accent} text-white tracking-wider`}>
+            {index + 1}
+          </span>
+        </div>
       </div>
 
       {/* Illustration */}
@@ -414,6 +428,8 @@ const LessonTheoryPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [illustrations, setIllustrations] = useState<Record<string, string>>({});
   const [generatingIllustration, setGeneratingIllustration] = useState<string | null>(null);
+  const [editingSectionIdx, setEditingSectionIdx] = useState<number | null>(null);
+  const [tempSectionMarkdown, setTempSectionMarkdown] = useState('');
   const [fontSizeIdx, setFontSizeIdx] = useState(() => {
     try { return parseInt(localStorage.getItem('theory-font-size') || '1'); } catch { return 1; }
   });
@@ -497,6 +513,43 @@ const LessonTheoryPage = () => {
     setEditKeyPoints([...keyPoints]);
     setEditContent(rawContent);
     setIsEditing(true);
+  };
+
+  const startSectionEdit = (idx: number, markdown: string) => {
+    setEditingSectionIdx(idx);
+    setTempSectionMarkdown(markdown);
+  };
+
+  const handleSaveSection = () => {
+    if (editingSectionIdx === null) return;
+    const secs = rawContent ? parseToSections(rawContent) : [];
+    if (editingSectionIdx >= secs.length) return;
+
+    // Build new content by replacing old raw section
+    const oldRaw = secs[editingSectionIdx].rawText;
+    const newRawContent = rawContent.replace(oldRaw, tempSectionMarkdown);
+
+    // Save using standard save logic
+    setEditContent(newRawContent);
+    setEditSummary(summary);
+    setEditKeyPoints(keyPoints);
+
+    // Call saveEdits effectively
+    (async () => {
+      setIsSaving(true);
+      try {
+        await supabase.from('lesson_theory').upsert({
+          lesson_id: lessonId, lesson_name: lessonName, grade: gradeNum,
+          chapter_name: chapterName, content: newRawContent, summary: summary, key_points: keyPoints,
+          illustrations: illustrations,
+        }, { onConflict: 'lesson_id' });
+        setRawContent(newRawContent);
+        setEditingSectionIdx(null);
+        toast.success('Đã lưu thay đổi phần này!');
+      } catch {
+        toast.error('Lỗi khi lưu.');
+      } finally { setIsSaving(false); }
+    })();
   };
 
   const cancelEditing = () => {
@@ -826,12 +879,59 @@ const LessonTheoryPage = () => {
                               ) : undefined}
                               onUploadIllustration={isAdmin ? (file) => handleUploadIllustration(section.title, file) : undefined}
                               onDeleteIllustration={isAdmin ? () => handleDeleteIllustration(section.title) : undefined}
+                              onEdit={isAdmin ? () => startSectionEdit(i, section.rawText) : undefined}
                               isGenerating={generatingIllustration === section.title}
                               fs={fontSize}
                             />
                           ))}
                         </div>
                       )}
+
+                      {/* Section Edit Modal */}
+                      <AnimatePresence>
+                        {editingSectionIdx !== null && (
+                          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                              className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden"
+                            >
+                              <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
+                                <div className="flex items-center gap-2">
+                                  <MaterialIcon name="edit_note" size={20} className="text-primary" />
+                                  <h3 className="text-sm font-bold">Sửa nội dung phần {editingSectionIdx + 1}</h3>
+                                </div>
+                                <button onClick={() => setEditingSectionIdx(null)} className="text-muted-foreground hover:text-foreground">
+                                  <MaterialIcon name="close" size={20} />
+                                </button>
+                              </div>
+                              <div className="p-4">
+                                <textarea
+                                  value={tempSectionMarkdown}
+                                  onChange={e => setTempSectionMarkdown(e.target.value)}
+                                  className="w-full h-64 bg-background border border-border rounded-xl p-4 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                  placeholder="Nhập nội dung Markdown..."
+                                  autoFocus
+                                />
+                                <div className="mt-4 flex justify-end gap-2">
+                                  <button onClick={() => setEditingSectionIdx(null)} className="px-4 py-2 rounded-xl border border-border text-xs font-semibold hover:bg-muted transition-colors">
+                                    Hủy bỏ
+                                  </button>
+                                  <button
+                                    onClick={handleSaveSection}
+                                    disabled={isSaving}
+                                    className="bg-primary text-primary-foreground px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50"
+                                  >
+                                    {isSaving ? <MaterialIcon name="hourglass_empty" size={14} className="animate-spin" /> : <MaterialIcon name="save" size={14} />}
+                                    Lưu thay đổi
+                                  </button>
+                                </div>
+                              </div>
+                            </motion.div>
+                          </div>
+                        )}
+                      </AnimatePresence>
                       {sections.length === 0 && summary && (
                         <motion.div
                           initial={{ opacity: 0, y: 16 }}

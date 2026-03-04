@@ -63,7 +63,7 @@ Generate only the illustration image.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.0-flash-exp",
         messages: [{ role: "user", content: prompt }],
         modalities: ["image", "text"],
       }),
@@ -71,8 +71,9 @@ Generate only the illustration image.`;
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("AI error:", response.status, errText);
-      throw new Error(`AI generation failed: ${response.status}`);
+      console.error("AI error status:", response.status);
+      console.error("AI error text:", errText);
+      throw new Error(`AI generation failed (${response.status}): ${errText}`);
     }
 
     const data = await response.json();
@@ -141,10 +142,10 @@ Generate only the illustration image.`;
     return new Response(JSON.stringify({ url: publicUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error("generate-illustration error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ error: `Lỗi Backend Minh họa: ${e.message}`, stack: e.stack }), {
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }
 });
