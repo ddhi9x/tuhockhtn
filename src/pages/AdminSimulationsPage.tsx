@@ -192,7 +192,8 @@ Yêu cầu:
       const { data, error } = await supabase.functions.invoke('chat', {
         body: {
           message: prompt,
-          systemPrompt: "Bạn là chuyên gia lập trình mô phỏng giáo dục. Chỉ trả về code HTML/JS hoàn chỉnh trong code block."
+          systemPrompt: "Bạn là chuyên gia lập trình mô phỏng giáo dục. Chỉ trả về code HTML/JS hoàn chỉnh trong code block.",
+          stream: false
         }
       });
 

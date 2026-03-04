@@ -47,7 +47,7 @@ Trả về JSON array, mỗi phần tử có: question, options (array 4 strings
     const userPrompt = `Tạo ${count} câu hỏi trắc nghiệm lớp ${grade} cho bài "${lessonName}" (Chương ${chapterName}).`;
 
     if (GEMINI_API_KEY) {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -65,7 +65,24 @@ Trả về JSON array, mỗi phần tử có: question, options (array 4 strings
 
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-      return new Response(JSON.stringify({ questions: JSON.parse(text) }), {
+
+      let parsedQuestions = [];
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        try {
+          parsedQuestions = JSON.parse(jsonMatch[0]);
+        } catch (e) {
+          console.error("Lỗi parse regex JSON:", e);
+        }
+      } else {
+        try {
+          parsedQuestions = JSON.parse(text);
+        } catch (e) {
+          console.error("Lỗi parse text thuần JSON:", e);
+        }
+      }
+
+      return new Response(JSON.stringify({ questions: parsedQuestions }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
@@ -79,7 +96,7 @@ Trả về JSON array, mỗi phần tử có: question, options (array 4 strings
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash",
+        model: "google/gemini-3.1-pro-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

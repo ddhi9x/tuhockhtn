@@ -63,7 +63,7 @@ Generate only the illustration image.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [{ role: "user", content: prompt }],
         modalities: ["image", "text"],
       }),

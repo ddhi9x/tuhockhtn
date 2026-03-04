@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAppContext, ChatMessage } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import MaterialIcon from '@/components/MaterialIcon';
 import { toast } from 'sonner';
 
@@ -8,6 +9,7 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 const ChatPage = () => {
   const { state, addChatMessage, updateChatMessage, clearChatHistory, updateDailyActivity, getTodayActivity } = useAppContext();
+  const { user } = useAuth();
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<'general' | 'exercise'>('general');
@@ -57,12 +59,23 @@ const ChatPage = () => {
 
       // Generate system prompt based on active lesson context
       const activeLesson = state.activeLesson;
+      const studentName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'học sinh';
+      const studentGrade = user?.user_metadata?.grade || 'THCS';
+
       let systemPrompt = undefined;
       if (activeLesson) {
-        systemPrompt = `Bạn là Gia sư AI môn Khoa học tự nhiên của tài nguyên này. Học sinh đang học bài: "${activeLesson.name}" (Chương ${activeLesson.chapter}, Lớp ${activeLesson.grade}). 
+        systemPrompt = `Bạn là Gia sư AI môn Khoa học tự nhiên của tài nguyên này. Tên của học sinh là: ${studentName}. Học sinh đang học Lớp ${studentGrade}.
+        Học sinh đang học bài: "${activeLesson.name}" (Chương ${activeLesson.chapter}, Lớp ${activeLesson.grade}). 
         Bạn tuyệt đối chỉ cung cấp, giải thích, và trả lời các câu hỏi liên quan đến nội dung của bài học được chỉ định ở trên.
+        Cách xưng hô: Gọi học sinh là "${studentName}" hoặc "bạn", xưng là "mình" hoặc "thầy/cô". Phải giữ thái độ thân thiện, khích lệ.
+        Giải thích bài tập phải phù hợp với trình độ của học sinh Lớp ${studentGrade}.
         Bạn hãy luôn ưu tiên nhắc lại hoặc đưa ra ví dụ liên quan đến "${activeLesson.name}" vào câu trả lời để học sinh hiểu rõ nhất bài này.
-        Nếu phần hỏi nằm ngoài nội dung này, hãy khéo léo từ chối và hướng học sinh quay lại bài học chính, ví dụ: "Câu hỏi của bạn thú vị đấy, nhưng hiện tại chúng ta đang tập trung vào bài [Tên Bài] nhé!"`;
+        Nếu phần hỏi nằm ngoài nội dung này, hãy khéo léo từ chối và hướng học sinh quay lại bài học chính.`;
+      } else {
+        systemPrompt = `Bạn là Gia sư AI môn Khoa học tự nhiên cấp THCS. Tên của học sinh là: ${studentName}. Học sinh đang học Lớp ${studentGrade}.
+        Cách xưng hô: Gọi học sinh là "${studentName}" hoặc "bạn", xưng là "mình" hoặc "thầy/cô". Phải giữ thái độ cực kỳ thân thiện, khích lệ.
+        Giải thích kiến thức hoặc bài tập phải luôn phù hợp với năng lực nhận thức cơ bản của học sinh Lớp ${studentGrade}.
+        Nếu được hỏi, hãy tận tình giải thích dễ hiểu, có ví dụ từ thực tế cuộc sống.`;
       }
 
       const resp = await fetch(CHAT_URL, {
@@ -226,8 +239,8 @@ const ChatPage = () => {
               />
             </div>
             <div className={`rounded-2xl p-4 max-w-2xl text-sm leading-relaxed ${msg.role === 'user'
-                ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                : 'bg-card border border-border rounded-tl-sm text-foreground'
+              ? 'bg-primary text-primary-foreground rounded-tr-sm'
+              : 'bg-card border border-border rounded-tl-sm text-foreground'
               }`}>
               <div className="whitespace-pre-wrap">{msg.content}</div>
               <p className={`text-[10px] mt-2 ${msg.role === 'user' ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>

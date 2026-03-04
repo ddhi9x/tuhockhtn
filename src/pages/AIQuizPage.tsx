@@ -120,12 +120,13 @@ const AIQuizPage = () => {
     if (!extraApiKey.trim()) { toast.error('Vui lòng nhập API key Gemini.'); return; }
     setExtraLoading(true);
     try {
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + extraApiKey.trim(), {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=' + extraApiKey.trim(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
-            parts: [{ text: `Tạo ${extraCount} câu hỏi trắc nghiệm KHTN cho bài "${lessonName}" (${chapterName}, Lớp ${grade}).
+            parts: [{
+              text: `Tạo ${extraCount} câu hỏi trắc nghiệm KHTN cho bài "${lessonName}" (${chapterName}, Lớp ${grade}).
 Mỗi câu có 4 đáp án A, B, C, D. Trả về JSON array, mỗi phần tử có: question, options (array 4 strings), correct (index 0-3), explanation.
 CHỈ trả về JSON array, không có text khác.` }]
           }],
@@ -241,13 +242,12 @@ CHỈ trả về JSON array, không có text khác.` }]
                         key={n}
                         onClick={() => setNumQuestions(Math.min(n, dbQuestionCount))}
                         disabled={n > dbQuestionCount}
-                        className={`py-3 rounded-xl text-sm font-bold transition-all ${
-                          numQuestions === Math.min(n, dbQuestionCount) && n <= dbQuestionCount
+                        className={`py-3 rounded-xl text-sm font-bold transition-all ${numQuestions === Math.min(n, dbQuestionCount) && n <= dbQuestionCount
                             ? 'bg-primary text-primary-foreground shadow-md scale-105'
                             : n > dbQuestionCount
-                            ? 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed'
-                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                        }`}
+                              ? 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed'
+                              : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                          }`}
                       >
                         {n}
                       </button>
@@ -302,12 +302,13 @@ CHỈ trả về JSON array, không có text khác.` }]
             setPhase('loading');
             setShowExtraAI(false);
             try {
-              const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + extraApiKey.trim(), {
+              const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=' + extraApiKey.trim(), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   contents: [{
-                    parts: [{ text: `Tạo ${extraCount} câu hỏi trắc nghiệm KHTN cho bài "${lessonName}" (${chapterName}, Lớp ${grade}).
+                    parts: [{
+                      text: `Tạo ${extraCount} câu hỏi trắc nghiệm KHTN cho bài "${lessonName}" (${chapterName}, Lớp ${grade}).
 Mỗi câu có 4 đáp án A, B, C, D. Trả về JSON array, mỗi phần tử có: question, options (array 4 strings), correct (index 0-3), explanation.
 CHỈ trả về JSON array, không có text khác.` }]
                   }],
@@ -445,11 +446,10 @@ CHỈ trả về JSON array, không có text khác.` }]
                   disabled={selectedAnswer !== null}
                   className={`w-full text-left border-2 rounded-xl p-4 flex items-start gap-3 transition-all ${style}`}
                 >
-                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
-                    selectedAnswer !== null && i === question.correct ? 'bg-success text-success-foreground' :
-                    selectedAnswer === i && i !== question.correct ? 'bg-destructive text-destructive-foreground' :
-                    'bg-muted text-muted-foreground'
-                  }`}>
+                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${selectedAnswer !== null && i === question.correct ? 'bg-success text-success-foreground' :
+                      selectedAnswer === i && i !== question.correct ? 'bg-destructive text-destructive-foreground' :
+                        'bg-muted text-muted-foreground'
+                    }`}>
                     {letters[i]}
                   </span>
                   <span className="text-sm font-medium pt-1">{opt}</span>
@@ -529,9 +529,8 @@ const ExtraAIModal = ({
               <div className="flex gap-2">
                 {[5, 10, 15].map(n => (
                   <button key={n} onClick={() => setCount(n)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-                      count === n ? 'bg-info text-info-foreground' : 'bg-muted text-muted-foreground'
-                    }`}>
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${count === n ? 'bg-info text-info-foreground' : 'bg-muted text-muted-foreground'
+                      }`}>
                     {n}
                   </button>
                 ))}
