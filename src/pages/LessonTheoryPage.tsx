@@ -53,8 +53,8 @@ interface ParsedSection {
 }
 
 // Extract clean text content from potentially JSON-wrapped data
-const extractCleanContent = (raw: string): { content: string; summary: string; keyPoints: string[] } => {
-  if (!raw) return { content: '', summary: '', keyPoints: [] };
+const extractCleanContent = (raw: string): { content: string; summary: string; keyPoints: string[]; illustrations: Record<string, string> } => {
+  if (!raw) return { content: '', summary: '', keyPoints: [], illustrations: {} };
 
   let str = raw.trim();
 
@@ -105,7 +105,17 @@ const extractCleanContent = (raw: string): { content: string; summary: string; k
               if (matches) keyPoints = matches.map(m => m.replace(/^"|"$/g, ''));
             }
 
-            return { content, summary, keyPoints };
+            let illustrations: Record<string, string> = {};
+            const illMatch = str.match(/"illustrations"\s*:\s*(\{[\s\S]*?\})/);
+            if (illMatch) {
+              try {
+                illustrations = JSON.parse(illMatch[1].replace(/\\"/g, '"').replace(/\\n/g, ''));
+              } catch (e) {
+                console.error("Error parsing illustrations from JSON string", e);
+              }
+            }
+
+            return { content, summary, keyPoints, illustrations };
           }
         }
       }
@@ -113,7 +123,7 @@ const extractCleanContent = (raw: string): { content: string; summary: string; k
   }
 
   // Already clean markdown
-  return { content: str, summary: '', keyPoints: [] };
+  return { content: str, summary: '', keyPoints: [], illustrations: {} };
 };
 
 // Parse markdown content into visual sections
@@ -608,7 +618,8 @@ const LessonTheoryPage = () => {
         setRawContent(extracted.content);
         setSummary(data.summary || extracted.summary || '');
         setKeyPoints((data.key_points as string[]) || extracted.keyPoints || []);
-        setIllustrations((data.illustrations as Record<string, string>) || {});
+        // Check both Database column and extracted fallback
+        setIllustrations((data.illustrations as Record<string, string>) || extracted.illustrations || {});
       }
       setIsFetching(false);
 
