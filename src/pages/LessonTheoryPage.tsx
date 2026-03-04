@@ -437,6 +437,7 @@ const LessonTheoryPage = () => {
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [illustrations, setIllustrations] = useState<Record<string, string>>({});
+  const illustrationsRef = useRef<Record<string, string>>({});
   const [generatingIllustration, setGeneratingIllustration] = useState<string | null>(null);
   const [editingSectionIdx, setEditingSectionIdx] = useState<number | null>(null);
   const [tempSectionMarkdown, setTempSectionMarkdown] = useState('');
@@ -460,13 +461,14 @@ const LessonTheoryPage = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       if (data?.url) {
-        // 1. Build the updated illustrations object
-        const currentIllustrations = { ...illustrations, [sectionTitle]: data.url };
+        // Use ref to always get the LATEST illustrations (critical for bulk generation)
+        const currentIllustrations = { ...illustrationsRef.current, [sectionTitle]: data.url };
 
-        // 2. Update local state immediately
+        // Update both ref and state
+        illustrationsRef.current = currentIllustrations;
         setIllustrations(currentIllustrations);
 
-        // 3. Persist to DB with await — this is the critical fix
+        // Persist to DB with await
         const { error: upErr } = await supabase.from('lesson_theory')
           .upsert({
             lesson_id: lessonId,
@@ -519,8 +521,13 @@ const LessonTheoryPage = () => {
       const publicUrl = urlData.publicUrl;
 
       // Update DB
-      const newIllustrations = { ...illustrations, [sectionTitle]: publicUrl };
-      await supabase.from('lesson_theory').update({ illustrations: newIllustrations }).eq('lesson_id', lessonId);
+      const newIllustrations = { ...illustrationsRef.current, [sectionTitle]: publicUrl };
+      await supabase.from('lesson_theory').upsert({
+        lesson_id: lessonId, lesson_name: lessonName, grade: gradeNum,
+        chapter_name: chapterName, content: rawContent, summary, key_points: keyPoints,
+        illustrations: newIllustrations
+      }, { onConflict: 'lesson_id' });
+      illustrationsRef.current = newIllustrations;
       setIllustrations(newIllustrations);
       toast.success(`Đã tải ảnh lên cho "${sectionTitle}"!`);
     } catch (err: any) {
@@ -531,9 +538,10 @@ const LessonTheoryPage = () => {
 
   const handleDeleteIllustration = async (sectionTitle: string) => {
     try {
-      const newIllustrations = { ...illustrations };
+      const newIllustrations = { ...illustrationsRef.current };
       delete newIllustrations[sectionTitle];
       await supabase.from('lesson_theory').update({ illustrations: newIllustrations }).eq('lesson_id', lessonId);
+      illustrationsRef.current = newIllustrations;
       setIllustrations(newIllustrations);
       toast.success('Đã xóa hình minh họa.');
     } catch {
@@ -632,7 +640,9 @@ const LessonTheoryPage = () => {
         setSummary(data.summary || extracted.summary || '');
         setKeyPoints((data.key_points as string[]) || extracted.keyPoints || []);
         // Check both Database column and extracted fallback
-        setIllustrations((data.illustrations as Record<string, string>) || extracted.illustrations || {});
+        const loadedIllustrations = (data.illustrations as Record<string, string>) || extracted.illustrations || {};
+        setIllustrations(loadedIllustrations);
+        illustrationsRef.current = loadedIllustrations;
       }
       setIsFetching(false);
 
