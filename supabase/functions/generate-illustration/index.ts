@@ -11,10 +11,23 @@ serve(async (req) => {
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    let GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Thử lấy từ database nếu có thể
+    try {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+      const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+      if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const { data: settings, error: settingsError } = await supabase.from('app_settings').select('gemini_api_key').limit(1).maybeSingle();
+        if (!settingsError && settings?.gemini_api_key) {
+          GEMINI_API_KEY = settings.gemini_api_key;
+        }
+      }
+    } catch (dbErr) {
+      console.error("Lỗi khi truy cập app_settings, dùng fallback Secret:", dbErr);
+    }
 
     const { sectionTitle, lessonName, chapterName, grade, lessonId, description } = await req.json();
 
@@ -65,7 +78,7 @@ Generate only the illustration image.`;
     const data = await response.json();
     console.log("AI response keys:", JSON.stringify(Object.keys(data)));
     console.log("Choices:", JSON.stringify(data.choices?.length));
-    
+
     const message = data.choices?.[0]?.message;
     const imageData = message?.images?.[0]?.image_url?.url;
 
@@ -84,6 +97,8 @@ Generate only the illustration image.`;
     const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
     // Upload to storage
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const safeName = sectionTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').substring(0, 40);
     const fileName = `${lessonId}/${safeName}-${Date.now()}.${imageFormat}`;

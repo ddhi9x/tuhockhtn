@@ -12,13 +12,23 @@ serve(async (req) => {
   try {
     const { lessonName, chapterName, grade, numQuestions } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    let GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    // Thử lấy từ database nếu có thể
+    try {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+      const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    const { data: settings } = await supabase.from('app_settings').select('gemini_api_key').limit(1).maybeSingle();
-    const GEMINI_API_KEY = settings?.gemini_api_key || Deno.env.get("GEMINI_API_KEY");
+      if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const { data: settings, error: settingsError } = await supabase.from('app_settings').select('gemini_api_key').limit(1).maybeSingle();
+        if (!settingsError && settings?.gemini_api_key) {
+          GEMINI_API_KEY = settings.gemini_api_key;
+        }
+      }
+    } catch (dbErr) {
+      console.error("Lỗi khi truy cập app_settings, dùng fallback Secret:", dbErr);
+    }
 
 
     const count = Math.min(Math.max(numQuestions || 5, 1), 20);

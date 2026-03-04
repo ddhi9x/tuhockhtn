@@ -10,16 +10,36 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, mode, systemPrompt: customSystemPrompt, stream = true } = await req.json();
+    const body = await req.json();
+    let { messages, message, mode, systemPrompt: customSystemPrompt, stream = true } = body;
+
+    // Hỗ trợ truyền 'message' (chuỗi đơn) hoặc 'messages' (mảng)
+    if (!messages || messages.length === 0) {
+      if (message) {
+        messages = [{ role: 'user', content: message }];
+      } else {
+        throw new Error("Missing 'messages' or 'message' field in request body");
+      }
+    }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    let GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    // Thử lấy từ database nếu có thể
+    try {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+      const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    const { data: settings } = await supabase.from('app_settings').select('gemini_api_key').limit(1).maybeSingle();
-    const GEMINI_API_KEY = settings?.gemini_api_key || Deno.env.get("GEMINI_API_KEY");
+      if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const { data: settings, error: settingsError } = await supabase.from('app_settings').select('gemini_api_key').limit(1).maybeSingle();
+        if (!settingsError && settings?.gemini_api_key) {
+          GEMINI_API_KEY = settings.gemini_api_key;
+        }
+      }
+    } catch (dbErr) {
+      console.error("Lỗi khi truy cập app_settings, dùng fallback Secret:", dbErr);
+    }
 
     const systemPrompt = customSystemPrompt || (mode === 'exercise'
       ? 'Bạn là một gia sư KHTN cấp THCS chuyên ra bài tập trắc nghiệm. Khi học sinh yêu cầu, hãy ra câu hỏi trắc nghiệm 4 đáp án A, B, C, D. Sau khi học sinh trả lời, hãy giải thích đáp án đúng. Sử dụng emoji phù hợp. Trả lời bằng tiếng Việt.'
@@ -42,6 +62,12 @@ serve(async (req) => {
             generationConfig: { temperature: 0.7 }
           }),
         });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Gemini API Error: ${response.status} - ${errText}`);
+        }
+
         const data = await response.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         return new Response(JSON.stringify({ reply: text }), {
@@ -59,6 +85,11 @@ serve(async (req) => {
           generationConfig: { temperature: 0.7 }
         }),
       });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini API Error: ${response.status} - ${errText}`);
+      }
 
       // Transform Gemini stream to OpenAI format
       const { readable, writable } = new TransformStream({
@@ -100,6 +131,11 @@ serve(async (req) => {
         stream: stream,
       }),
     });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Lovable API Error: ${response.status} - ${errText}`);
+    }
 
     if (!stream) {
       const data = await response.json();
