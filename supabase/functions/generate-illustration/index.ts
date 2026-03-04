@@ -10,7 +10,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     let GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
     // Thử lấy từ database nếu có thể
@@ -29,6 +28,10 @@ serve(async (req) => {
       console.error("Lỗi khi truy cập app_settings, dùng fallback Secret:", dbErr);
     }
 
+    if (!GEMINI_API_KEY) {
+      throw new Error("Missing GEMINI_API_KEY");
+    }
+
     const { sectionTitle, lessonName, chapterName, grade, lessonId, description } = await req.json();
 
     if (!sectionTitle || !lessonId) {
@@ -37,115 +40,101 @@ serve(async (req) => {
       });
     }
 
-    // Build a detailed prompt for educational illustration
-    const prompt = `Generate a clear, colorful educational illustration for Vietnamese middle school science (grade ${grade}).
+    console.log("Generating SVG illustration for:", sectionTitle);
 
-Topic: "${sectionTitle}" from lesson "${lessonName}" (${chapterName}).
-${description ? `Details: ${description}` : ''}
+    const systemPrompt = `You are a professional educational illustrator for Vietnamese Middle School Science (KHTN).
+Your task is to create a scientifically accurate, clear, and beautiful SVG illustration for the topic: "${sectionTitle}".
 
 Requirements:
-- Clean, simple educational diagram style with labels in Vietnamese
-- Use bright colors on white/light background
-- Include clear labels, arrows, and annotations
-- Must be scientifically accurate
-- Style: flat illustration, infographic-style, suitable for textbook
-- NO text that's too small to read
-- The illustration should explain the concept visually
+- Output ONLY a valid SVG code.
+- Style: Clean, modern, 2D infographic/diagram suitable for educational purposes.
+- Background: Usually transparent or white.
+- Labels: Use Vietnamese (Tiếng Việt) for all annotations and labels.
+- Sizing: Ensure it's responsive (use viewBox, avoid fixed width/height if possible).
+- Colors: Use professional, high-contrast educational color palettes.
+- Content: The illustration must accurately represent the concept: "${description || sectionTitle}".
 
-Generate only the illustration image.`;
+Return ONLY the XML/SVG code starting with <svg and ending with </svg>. No markdown formatting, no explanations.`;
 
-    console.log("Generating illustration for:", sectionTitle);
+    const userPrompt = `Bài học: ${lessonName} - Khối lớp: ${grade}. 
+Chương: ${chapterName}.
+Mục tiêu: Vẽ hình minh họa SVG cho phần "${sectionTitle}". 
+Mô tả chi tiết: ${description || 'Tạo sơ đồ hoặc hình vẽ minh họa phù hợp cho phần kiến thức này.'}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-exp",
-        messages: [{ role: "user", content: prompt }],
-        modalities: ["image", "text"],
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: { temperature: 0.2 }
       }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("AI error status:", response.status);
-      console.error("AI error text:", errText);
-      throw new Error(`AI generation failed (${response.status}): ${errText}`);
+      console.error("Gemini error:", response.status, errText);
+      throw new Error(`Gemini API failed (${response.status}): ${errText}`);
     }
 
-    const data = await response.json();
-    console.log("AI response keys:", JSON.stringify(Object.keys(data)));
-    console.log("Choices:", JSON.stringify(data.choices?.length));
+    const result = await response.json();
+    let svgCode = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    const message = data.choices?.[0]?.message;
-    const imageData = message?.images?.[0]?.image_url?.url;
-
-    if (!imageData) {
-      console.error("No image in response. Message keys:", JSON.stringify(message ? Object.keys(message) : 'no message'));
-      console.error("Full response (truncated):", JSON.stringify(data).substring(0, 500));
-      throw new Error("No image generated - AI may not have produced an image for this topic");
+    // Clean up markdown if any
+    if (svgCode.includes("```svg")) {
+      svgCode = svgCode.split("```svg")[1].split("```")[0];
+    } else if (svgCode.includes("```xml")) {
+      svgCode = svgCode.split("```xml")[1].split("```")[0];
+    } else if (svgCode.includes("```")) {
+      svgCode = svgCode.split("```")[1].split("```")[0];
     }
 
-    // Extract base64 data
-    const base64Match = imageData.match(/^data:image\/(\w+);base64,(.+)$/);
-    if (!base64Match) throw new Error("Invalid image format");
+    svgCode = svgCode.trim();
 
-    const imageFormat = base64Match[1]; // png, jpeg, etc.
-    const base64Data = base64Match[2];
-    const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    if (!svgCode.startsWith("<svg")) {
+      console.error("Invalid SVG output from AI:", svgCode.substring(0, 100));
+      throw new Error("AI did not generate a valid SVG code. Please try again.");
+    }
 
-    // Upload to storage
+    // Initialize Supabase Storage
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const safeName = sectionTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').substring(0, 40);
-    const fileName = `${lessonId}/${safeName}-${Date.now()}.${imageFormat}`;
+
+    // Create a safe filename
+    const safeTitle = sectionTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase().substring(0, 40);
+    const fileName = `${lessonId}/${safeTitle}-${Date.now()}.svg`;
 
     const { error: uploadError } = await supabase.storage
-      .from('theory-illustrations')
-      .upload(fileName, imageBytes, {
-        contentType: `image/${imageFormat}`,
+      .from("theory-illustrations")
+      .upload(fileName, svgCode, {
+        contentType: "image/svg+xml",
         upsert: true,
       });
 
     if (uploadError) {
-      console.error("Upload error:", uploadError);
-      throw new Error("Failed to upload image: " + uploadError.message);
+      console.error("Storage upload error:", uploadError);
+      throw new Error(`Failed to save image to storage: ${uploadError.message}`);
     }
 
-    const { data: urlData } = supabase.storage
-      .from('theory-illustrations')
+    const { data: { publicUrl } } = supabase.storage
+      .from("theory-illustrations")
       .getPublicUrl(fileName);
 
-    const publicUrl = urlData.publicUrl;
-
-    // Update lesson_theory illustrations
-    const { data: existing } = await supabase
-      .from('lesson_theory')
-      .select('illustrations')
-      .eq('lesson_id', lessonId)
-      .maybeSingle();
-
-    const currentIllustrations = (existing?.illustrations as Record<string, string>) || {};
-    currentIllustrations[sectionTitle] = publicUrl;
-
-    await supabase
-      .from('lesson_theory')
-      .update({ illustrations: currentIllustrations })
-      .eq('lesson_id', lessonId);
-
-    console.log("Illustration saved:", publicUrl);
+    console.log("Successfully generated SVG:", publicUrl);
 
     return new Response(JSON.stringify({ url: publicUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (e: any) {
     console.error("generate-illustration error:", e);
-    return new Response(JSON.stringify({ error: `Lỗi Backend Minh họa: ${e.message}`, stack: e.stack }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" }
+    // Trả về 200 để Frontend hiển thị được nội dung lỗi
+    return new Response(JSON.stringify({
+      error: `Lỗi AI Minh họa (SVG): ${e.message}`,
+      details: e.stack
+    }), {
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
