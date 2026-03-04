@@ -462,10 +462,18 @@ const LessonTheoryPage = () => {
       if (data?.url) {
         setIllustrations(prev => {
           const updated = { ...prev, [sectionTitle]: data.url };
-          // Persist to DB immediately
+          // Persist to DB immediately with upsert to handle new or unsaved lessons
           supabase.from('lesson_theory')
-            .update({ illustrations: updated })
-            .eq('lesson_id', lessonId)
+            .upsert({
+              lesson_id: lessonId,
+              lesson_name: lessonName,
+              grade: gradeNum,
+              chapter_name: chapterName,
+              content: rawContent,
+              summary: summary,
+              key_points: keyPoints,
+              illustrations: updated
+            }, { onConflict: 'lesson_id' })
             .then(({ error: upErr }) => {
               if (upErr) console.error("Error persisting illustration:", upErr);
             });
