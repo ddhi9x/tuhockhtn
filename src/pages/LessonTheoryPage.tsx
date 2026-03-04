@@ -460,30 +460,31 @@ const LessonTheoryPage = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       if (data?.url) {
-        setIllustrations(prev => {
-          const updated = { ...prev, [sectionTitle]: data.url };
-          // Persist to DB immediately with upsert to handle new or unsaved lessons
-          supabase.from('lesson_theory')
-            .upsert({
-              lesson_id: lessonId,
-              lesson_name: lessonName,
-              grade: gradeNum,
-              chapter_name: chapterName,
-              content: rawContent,
-              summary: summary,
-              key_points: keyPoints,
-              illustrations: updated
-            }, { onConflict: 'lesson_id' })
-            .then(({ error: upErr }) => {
-              if (upErr) {
-                console.error("Error persisting illustration:", upErr);
-                toast.error(`Lỗi lưu DB: ${upErr.message}. Thầy kiểm tra lại SQL nhé!`);
-              } else {
-                toast.success(`Đã tạo và lưu hình minh họa cho "${sectionTitle}"!`);
-              }
-            });
-          return updated;
-        });
+        // 1. Build the updated illustrations object
+        const currentIllustrations = { ...illustrations, [sectionTitle]: data.url };
+
+        // 2. Update local state immediately
+        setIllustrations(currentIllustrations);
+
+        // 3. Persist to DB with await — this is the critical fix
+        const { error: upErr } = await supabase.from('lesson_theory')
+          .upsert({
+            lesson_id: lessonId,
+            lesson_name: lessonName,
+            grade: gradeNum,
+            chapter_name: chapterName,
+            content: rawContent,
+            summary: summary,
+            key_points: keyPoints,
+            illustrations: currentIllustrations
+          }, { onConflict: 'lesson_id' });
+
+        if (upErr) {
+          console.error("Error persisting illustration:", upErr);
+          toast.error(`Lỗi lưu ảnh vào DB: ${upErr.message}`);
+        } else {
+          toast.success(`Đã tạo và lưu hình minh họa cho "${sectionTitle}"!`);
+        }
       }
     } catch (err: any) {
       toast.error('Lỗi tạo hình: ' + (err?.message || 'Unknown'));
