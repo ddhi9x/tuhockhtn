@@ -47,7 +47,8 @@ Your task is to create a scientifically accurate, clear, and beautiful SVG illus
 
 Requirements:
 - Output ONLY a valid SVG code.
-- Style: Clean, modern, 2D infographic/diagram suitable for educational purposes.
+- Style: Clean, modern, 2D infographic/diagram suitable for educational purposes. 
+- UNIQUENESS: Every illustration must be UNIQUE and SPECIFIC to the provided topic. Do not reuse generic layouts if the description provides specific details.
 - Background: Usually transparent or white.
 - Labels: Use Vietnamese (Tiếng Việt) for all annotations and labels.
 - Sizing: Ensure it's responsive (use viewBox, avoid fixed width/height if possible).
@@ -61,13 +62,13 @@ Chương: ${chapterName}.
 Mục tiêu: Vẽ hình minh họa SVG cho phần "${sectionTitle}". 
 Mô tả chi tiết: ${description || 'Tạo sơ đồ hoặc hình vẽ minh họa phù hợp cho phần kiến thức này.'}`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         systemInstruction: { parts: [{ text: systemPrompt }] },
-        generationConfig: { temperature: 0.2 }
+        generationConfig: { temperature: 0.4 }
       }),
     });
 

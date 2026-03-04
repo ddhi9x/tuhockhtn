@@ -450,7 +450,17 @@ const LessonTheoryPage = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       if (data?.url) {
-        setIllustrations(prev => ({ ...prev, [sectionTitle]: data.url }));
+        setIllustrations(prev => {
+          const updated = { ...prev, [sectionTitle]: data.url };
+          // Persist to DB immediately
+          supabase.from('lesson_theory')
+            .update({ illustrations: updated })
+            .eq('lesson_id', lessonId)
+            .then(({ error: upErr }) => {
+              if (upErr) console.error("Error persisting illustration:", upErr);
+            });
+          return updated;
+        });
         toast.success(`Đã tạo hình minh họa cho "${sectionTitle}"!`);
       }
     } catch (err: any) {
