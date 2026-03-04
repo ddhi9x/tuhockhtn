@@ -239,7 +239,7 @@ const SectionCard = ({ section, index, illustrationUrl, onGenerateIllustration, 
               <img
                 src={illustrationUrl}
                 alt={`Minh họa: ${section.title}`}
-                className="w-full h-auto object-contain max-h-64"
+                className="w-full h-auto object-contain max-h-[500px]"
                 loading="lazy"
               />
             </div>
@@ -715,7 +715,7 @@ const LessonTheoryPage = () => {
                   <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full" />
                 </div>
               ) : (rawContent || summary) ? (
-                <div className="max-w-2xl mx-auto space-y-5">
+                <div className="max-w-5xl mx-auto space-y-5">
 
                   {/* Edit/View toggle */}
                   <div className="flex justify-end gap-2">
@@ -969,7 +969,7 @@ const LessonTheoryPage = () => {
                 </div>
               ) : (
                 /* Upload Area */
-                <div className="max-w-2xl mx-auto">
+                <div className="max-w-5xl mx-auto">
                   <div className="text-center mb-8">
                     <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                       <MaterialIcon name="upload_file" size={32} className="text-primary" />
@@ -1034,7 +1034,7 @@ const LessonTheoryPage = () => {
               )}
             </motion.div>
           ) : activeTab === 'video' ? (
-            <motion.div key="video" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-4xl mx-auto space-y-8">
+            <motion.div key="video" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-5xl mx-auto space-y-8">
               {lessonVideos.length > 0 ? (
                 <div className="grid gap-8">
                   {lessonVideos.map((video, idx) => {
