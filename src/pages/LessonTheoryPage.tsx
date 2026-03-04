@@ -475,11 +475,15 @@ const LessonTheoryPage = () => {
               illustrations: updated
             }, { onConflict: 'lesson_id' })
             .then(({ error: upErr }) => {
-              if (upErr) console.error("Error persisting illustration:", upErr);
+              if (upErr) {
+                console.error("Error persisting illustration:", upErr);
+                toast.error(`Lỗi lưu DB: ${upErr.message}. Thầy kiểm tra lại SQL nhé!`);
+              } else {
+                toast.success(`Đã tạo và lưu hình minh họa cho "${sectionTitle}"!`);
+              }
             });
           return updated;
         });
-        toast.success(`Đã tạo hình minh họa cho "${sectionTitle}"!`);
       }
     } catch (err: any) {
       toast.error('Lỗi tạo hình: ' + (err?.message || 'Unknown'));
