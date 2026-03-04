@@ -9,6 +9,9 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // MOCK DATA TO TEST FRONTEND TIMEOUT/DB ERROR
+  return new Response(JSON.stringify({ content: "Testing content", summary: "Testing summary", key_points: ["Mock 1"] }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
   try {
     const { lessonName, chapterName, grade } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");

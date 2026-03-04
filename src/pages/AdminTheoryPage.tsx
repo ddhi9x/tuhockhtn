@@ -153,13 +153,10 @@ const AdminTheoryPage = () => {
       });
 
       if (error) throw error;
-      if (data?.error === 'rate_limit') {
-        toast.error('Quá nhiều yêu cầu, đợi 30s rồi thử lại...');
-        await new Promise(r => setTimeout(r, 30000));
-        return false;
-      }
-      if (data?.error === 'credits_exhausted') {
-        toast.error('Hết credits AI!');
+      if (data?.error) {
+        if (data.error === 'rate_limit') toast.error('Quá nhiều yêu cầu, đợi 30s rồi thử lại...');
+        else if (data.error === 'credits_exhausted') toast.error('Hết credits AI!');
+        else toast.error(`Lỗi AI: ${data.error}`);
         return false;
       }
 
@@ -364,8 +361,8 @@ const AdminTheoryPage = () => {
                     <MaterialIcon name={chapter.icon} size={20} className="text-primary" />
                     <span className="font-medium text-sm">{chapter.name}</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${chapterDone === chapterLessons.length
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-muted text-muted-foreground'
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-muted text-muted-foreground'
                       }`}>
                       {chapterDone}/{chapterLessons.length}
                     </span>
