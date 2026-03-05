@@ -4,6 +4,8 @@ import { curriculumData } from '@/data/curriculumData';
 import MaterialIcon from '@/components/MaterialIcon';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import mammoth from 'mammoth';
+import * as XLSX from 'xlsx';
 
 interface KnowledgeSource {
     id: string;
@@ -34,6 +36,41 @@ const AdminKnowledgeHubPage = () => {
             .order('created_at', { ascending: false }) as any);
         if (!error && data) setSources(data as KnowledgeSource[]);
         setLoading(false);
+    };
+
+    const extractTextFromFile = async (file: File): Promise<string> => {
+        const ext = file.name.split('.').pop()?.toLowerCase();
+
+        if (ext === 'txt' || ext === 'md') {
+            return await file.text();
+        }
+
+        if (ext === 'docx') {
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            return result.value;
+        }
+
+        if (ext === 'xlsx' || ext === 'xls') {
+            const arrayBuffer = await file.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            let text = '';
+            for (const sheetName of workbook.SheetNames) {
+                const sheet = workbook.Sheets[sheetName];
+                text += XLSX.utils.sheet_to_csv(sheet) + '\n\n';
+            }
+            return text;
+        }
+
+        if (ext === 'pdf') {
+            // Basic text extraction attempt
+            const text = await file.text();
+            if (text.length > 50) return text;
+            toast.error(`PDF "${file.name}" không thể đọc tự động. Hãy chuyển sang file văn bản (.txt, .docx) sẽ tốt hơn.`);
+            return '';
+        }
+
+        return await file.text();
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,7 +124,12 @@ const AdminKnowledgeHubPage = () => {
 
     const processKnowledge = async (sourceId: string, file: File, grade: number) => {
         try {
-            const textContent = await file.text();
+            const textContent = await extractTextFromFile(file);
+            if (!textContent || textContent.length < 10) {
+                console.warn('Skipping ingestion: No text extracted');
+                return;
+            }
+
             const gradeData = curriculumData.find(g => g.grade === grade);
             const curriculum = gradeData?.chapters.map(ch => ({
                 name: ch.name,
@@ -160,14 +202,14 @@ const AdminKnowledgeHubPage = () => {
                                 >
                                     <MaterialIcon name={uploading ? 'hourglass_empty' : 'upload_file'} size={32} className={`mx-auto mb-2 ${uploading ? 'animate-spin' : 'text-primary'}`} />
                                     <p className="text-sm font-semibold">{uploading ? 'Đang tải lên...' : 'Bấm chọn file'}</p>
-                                    <p className="text-[10px] text-muted-foreground mt-1">Hiện tại hỗ trợ: .txt, .md (Văn bản thuần túi)</p>
+                                    <p className="text-[10px] text-muted-foreground mt-1">Hỗ trợ: .docx, .xlsx, .pdf, .txt, .md</p>
                                     <input
                                         type="file"
                                         ref={fileInputRef}
                                         onChange={handleFileUpload}
                                         multiple
                                         className="hidden"
-                                        accept=".txt,.md"
+                                        accept=".docx,.xlsx,.xls,.pdf,.txt,.md"
                                     />
                                 </div>
 

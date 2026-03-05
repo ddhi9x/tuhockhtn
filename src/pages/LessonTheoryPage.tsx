@@ -8,6 +8,8 @@ import MaterialIcon from '@/components/MaterialIcon';
 import { toast } from 'sonner';
 import SimulationPanel from '@/components/SimulationPanel';
 import ImageLightbox from '@/components/ImageLightbox';
+import mammoth from 'mammoth';
+import * as XLSX from 'xlsx';
 
 // Emoji/icon mapping for visual sections
 const topicEmojis: Record<string, string> = {
@@ -658,13 +660,48 @@ const LessonTheoryPage = () => {
     if (lessonId) fetchTheory();
   }, [lessonId]);
 
+  const extractTextFromFile = async (file: File): Promise<string> => {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+
+    if (ext === 'txt' || ext === 'md') {
+      return await file.text();
+    }
+
+    if (ext === 'docx') {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      return result.value;
+    }
+
+    if (ext === 'xlsx' || ext === 'xls') {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      let text = '';
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        text += XLSX.utils.sheet_to_csv(sheet) + '\n\n';
+      }
+      return text;
+    }
+
+    if (ext === 'pdf') {
+      // Basic text extraction attempt
+      const text = await file.text();
+      if (text.length > 50) return text;
+      toast.error(`PDF "${file.name}" không thể đọc tự động. Hãy chuyển sang file văn bản (.txt, .docx) sẽ tốt hơn.`);
+      return '';
+    }
+
+    return await file.text();
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsLoading(true);
     setUploadProgress(10);
     try {
-      const textContent = await file.text();
+      const textContent = await extractTextFromFile(file);
       if (textContent.length < 20) { toast.error('File không có đủ nội dung.'); setIsLoading(false); return; }
       setRawContent(textContent);
       setUploadProgress(30);
@@ -1040,8 +1077,8 @@ const LessonTheoryPage = () => {
                       >
                         <MaterialIcon name="cloud_upload" size={40} className="text-primary/60 mx-auto mb-3" />
                         <p className="font-medium text-sm">Kéo thả hoặc bấm để chọn file</p>
-                        <p className="text-xs text-muted-foreground mt-1">.txt, .md hoặc file văn bản</p>
-                        <input ref={fileInputRef} type="file" accept=".txt,.md,.text" onChange={handleFileUpload} className="hidden" />
+                        <p className="text-xs text-muted-foreground mt-1">Hỗ trợ: .docx, .xlsx, .pdf, .txt, .md</p>
+                        <input ref={fileInputRef} type="file" accept=".docx,.xlsx,.xls,.pdf,.txt,.md" onChange={handleFileUpload} className="hidden" />
                       </div>
                       <button onClick={handlePasteText} className="w-full bg-card border border-border rounded-xl p-4 flex items-center gap-3 hover:border-primary/30 transition-all">
                         <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
