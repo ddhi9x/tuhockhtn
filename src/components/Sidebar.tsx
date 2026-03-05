@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import MaterialIcon from './MaterialIcon';
@@ -25,6 +25,21 @@ const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Auto-close sidebar on navigation (mobile)
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  // Close sidebar on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const isActive = (path: string) => location.pathname === path || (path !== '/' && path !== '/admin' && location.pathname.startsWith(path + '/'));
 
@@ -41,8 +56,8 @@ const Sidebar = () => {
     </button>
   );
 
-  return (
-    <aside className="w-[220px] min-h-screen bg-sidebar border-r border-sidebar-border flex flex-col py-4 px-3 shrink-0">
+  const sidebarContent = (
+    <>
       <div className="text-center mb-6 px-2">
         <h2 className="text-sm font-bold text-foreground leading-tight">KHOA HỌC TỰ NHIÊN</h2>
         <span className="text-[10px] font-semibold text-primary tracking-wider">KHỐI LỚP THCS</span>
@@ -85,7 +100,44 @@ const Sidebar = () => {
           </>
         )}
       </nav>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar - always visible on md+ */}
+      <aside className="hidden md:flex w-[220px] min-h-screen bg-sidebar border-r border-sidebar-border flex-col py-4 px-3 shrink-0">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile toggle button - always visible on small screens */}
+      <button
+        onClick={() => setMobileOpen(!mobileOpen)}
+        className={`md:hidden fixed top-1/2 -translate-y-1/2 z-[60] w-7 h-14 flex items-center justify-center rounded-r-lg shadow-lg transition-all duration-300 ${mobileOpen
+            ? 'left-[220px] bg-primary text-primary-foreground'
+            : 'left-0 bg-primary text-primary-foreground'
+          }`}
+        aria-label={mobileOpen ? 'Đóng menu' : 'Mở menu'}
+      >
+        <MaterialIcon name={mobileOpen ? 'chevron_left' : 'chevron_right'} size={20} />
+      </button>
+
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/40 z-[49] backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile sidebar - slide in from left */}
+      <aside
+        className={`md:hidden fixed top-0 left-0 h-full w-[220px] bg-sidebar border-r border-sidebar-border flex flex-col py-4 px-3 z-[55] transition-transform duration-300 ease-in-out overflow-y-auto ${mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+      >
+        {sidebarContent}
+      </aside>
+    </>
   );
 };
 
