@@ -729,7 +729,7 @@ const LessonTheoryPage = () => {
             <h1 className="text-lg font-bold">{lessonName}</h1>
           </div>
         </div>
-        <div className="flex gap-1 mt-3">
+        <div className="flex gap-2 mt-3 overflow-x-auto pb-2 scrollbar-none sm:gap-1">
           {[
             { id: 'theory' as const, label: 'Lý thuyết SGK', icon: 'menu_book' },
             { id: 'self_study' as const, label: 'Tự học (HTML)', icon: 'html' },
@@ -739,7 +739,7 @@ const LessonTheoryPage = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all shrink-0 whitespace-nowrap ${activeTab === tab.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground bg-muted/50 hover:bg-muted'
                 }`}
             >
               <MaterialIcon name={tab.icon} size={18} />
