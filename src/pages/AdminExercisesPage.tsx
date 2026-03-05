@@ -175,19 +175,39 @@ const AdminExercisesPage = () => {
         toast.error('AI không trả về câu hỏi hợp lệ.'); setAiGenerating(false); return;
       }
 
-      // Insert all generated questions
-      const rows = questions.map((q: any) => ({
-        grade: info.grade,
-        chapter_name: info.chapterName,
-        lesson_id: aiLessonId,
-        lesson_name: info.lessonName,
-        question: q.question,
-        options: q.options,
-        correct_answer: q.correct,
-        explanation: q.explanation || null,
-        difficulty_level: 'medium',
-        is_ai_generated: true,
-      }));
+      // Insert all generated questions (support diverse types)
+      const rows = questions.map((q: any) => {
+        const qType = q.type || 'mcq';
+        const base = {
+          grade: info.grade,
+          chapter_name: info.chapterName,
+          lesson_id: aiLessonId,
+          lesson_name: info.lessonName,
+          question: q.question,
+          explanation: q.explanation || null,
+          difficulty_level: 'medium',
+          is_ai_generated: true,
+          question_type: qType,
+        };
+
+        if (qType === 'mcq') {
+          return { ...base, options: q.options || [], correct_answer: q.correct ?? 0 };
+        }
+        if (qType === 'true_false') {
+          return { ...base, options: ['Đúng', 'Sai'], correct_answer: q.correct_answer === true ? 0 : 1, correct_answer_data: { answer: q.correct_answer } };
+        }
+        if (qType === 'fill_blank') {
+          return { ...base, options: q.answers || [], correct_answer: 0, correct_answer_data: { answers: q.answers } };
+        }
+        if (qType === 'matching') {
+          return { ...base, options: q.left || [], correct_answer: 0, correct_answer_data: { left: q.left, right: q.right, correct_pairs: q.correct_pairs } };
+        }
+        if (qType === 'ordering') {
+          return { ...base, options: q.items || [], correct_answer: 0, correct_answer_data: { items: q.items, correct_order: q.correct_order } };
+        }
+        // Fallback MCQ
+        return { ...base, options: q.options || [], correct_answer: q.correct ?? 0 };
+      });
 
       const { error: insertError } = await supabase.from('exercises').insert(rows);
       if (insertError) { toast.error('Lỗi lưu: ' + insertError.message); setAiGenerating(false); return; }
@@ -456,7 +476,7 @@ const AdminExercisesPage = () => {
                               >
                                 <span className="text-sm font-medium truncate">{lesson.name}</span>
                                 <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${lessonExercises.length > 0 ? 'bg-primary/10 text-primary' :
-                                    'bg-muted text-muted-foreground'
+                                  'bg-muted text-muted-foreground'
                                   }`}>
                                   {lessonExercises.length} câu
                                 </span>

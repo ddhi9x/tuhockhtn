@@ -4,14 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAppContext } from '@/contexts/AppContext';
 import { supabase } from '@/integrations/supabase/client';
 import MaterialIcon from '@/components/MaterialIcon';
+import QuestionRenderer, { QuizQuestionAny } from '@/components/quiz/QuestionRenderer';
 import { toast } from 'sonner';
 
-interface QuizQuestion {
-  question: string;
-  options: string[];
-  correct: number;
-  explanation: string;
-}
 
 const QUESTION_COUNTS = [10, 20, 30];
 
@@ -31,11 +26,12 @@ const AIQuizPage = () => {
   const [loadingCount, setLoadingCount] = useState(true);
 
   // Quiz state
-  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [questions, setQuestions] = useState<QuizQuestionAny[]>([]);
   const [currentQ, setCurrentQ] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [startTime, setStartTime] = useState(0);
+  const [answeredCurrent, setAnsweredCurrent] = useState(false);
 
   // Extra AI mode
   const [showExtraAI, setShowExtraAI] = useState(false);
@@ -71,11 +67,13 @@ const AIQuizPage = () => {
       if (data && data.length > 0) {
         // Shuffle and take `count` questions
         const shuffled = [...data].sort(() => Math.random() - 0.5).slice(0, count);
-        const mapped: QuizQuestion[] = shuffled.map(d => ({
+        const mapped: QuizQuestionAny[] = shuffled.map(d => ({
+          type: (d as any).question_type || 'mcq',
           question: d.question,
           options: d.options as unknown as string[],
           correct: d.correct_answer,
           explanation: d.explanation || '',
+          ...(d as any).correct_answer_data,
         }));
         setQuestions(mapped);
       } else {
@@ -158,25 +156,24 @@ CHỈ trả về JSON array, không có text khác.` }]
     }
   };
 
-  const handleAnswer = (idx: number) => {
-    if (selectedAnswer !== null) return;
-    setSelectedAnswer(idx);
-    if (idx === questions[currentQ].correct) setScore(s => s + 1);
+  const handleAnswer = (isCorrect: boolean) => {
+    setAnsweredCurrent(true);
+    if (isCorrect) setScore(s => s + 1);
   };
 
   const nextQuestion = () => {
     if (currentQ < questions.length - 1) {
       setCurrentQ(c => c + 1);
       setSelectedAnswer(null);
+      setAnsweredCurrent(false);
     } else {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       const today = getTodayActivity();
-      const finalScore = score + (selectedAnswer === questions[currentQ].correct ? 1 : 0);
       addExerciseResult({
         date: new Date().toISOString().split('T')[0],
         subject: lessonName,
         grade: parseInt(grade || '6'),
-        correct: finalScore,
+        correct: score,
         total: questions.length,
         timeSpent: elapsed,
       });
@@ -191,6 +188,7 @@ CHỈ trả về JSON array, không có text khác.` }]
   const resetQuiz = (newCount?: number) => {
     setCurrentQ(0);
     setSelectedAnswer(null);
+    setAnsweredCurrent(false);
     setScore(0);
     setQuestions([]);
     if (newCount !== undefined) {
@@ -243,10 +241,10 @@ CHỈ trả về JSON array, không có text khác.` }]
                         onClick={() => setNumQuestions(Math.min(n, dbQuestionCount))}
                         disabled={n > dbQuestionCount}
                         className={`py-3 rounded-xl text-sm font-bold transition-all ${numQuestions === Math.min(n, dbQuestionCount) && n <= dbQuestionCount
-                            ? 'bg-primary text-primary-foreground shadow-md scale-105'
-                            : n > dbQuestionCount
-                              ? 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed'
-                              : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                          ? 'bg-primary text-primary-foreground shadow-md scale-105'
+                          : n > dbQuestionCount
+                            ? 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
                           }`}
                       >
                         {n}
@@ -355,8 +353,7 @@ CHỈ trả về JSON array, không có text khác.` }]
 
   // ── Result phase ──
   if (phase === 'result') {
-    const finalScore = score;
-    const pct = Math.round((finalScore / questions.length) * 100);
+    const pct = Math.round((score / questions.length) * 100);
     return (
       <div className="p-6 max-w-lg mx-auto flex items-center justify-center min-h-[calc(100vh-64px)]">
         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-card rounded-2xl border border-border p-8 text-center w-full">
@@ -365,7 +362,7 @@ CHỈ trả về JSON array, không có text khác.` }]
           </div>
           <h2 className="text-2xl font-bold">Kết quả</h2>
           <p className="text-sm text-muted-foreground mt-1">{lessonName}</p>
-          <p className="text-4xl font-extrabold text-primary mt-3">{finalScore}/{questions.length}</p>
+          <p className="text-4xl font-extrabold text-primary mt-3">{score}/{questions.length}</p>
           <p className="text-muted-foreground">({pct}% đúng)</p>
 
           <div className="flex flex-col gap-2 mt-6">
@@ -408,7 +405,6 @@ CHỈ trả về JSON array, không có text khác.` }]
 
   // ── Quiz phase ──
   const question = questions[currentQ];
-  const letters = ['A', 'B', 'C', 'D'];
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -427,51 +423,13 @@ CHỈ trả về JSON array, không có text khác.` }]
 
       <AnimatePresence mode="wait">
         <motion.div key={currentQ} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}>
-          <div className="bg-card rounded-2xl border border-border p-6 mb-4">
-            <h2 className="font-bold text-lg leading-relaxed">{question.question}</h2>
-          </div>
-
-          <div className="space-y-3">
-            {question.options.map((opt, i) => {
-              let style = 'border-border hover:border-primary/40 hover:bg-primary/5';
-              if (selectedAnswer !== null) {
-                if (i === question.correct) style = 'border-success bg-success/10';
-                else if (i === selectedAnswer) style = 'border-destructive bg-destructive/10';
-                else style = 'border-border opacity-50';
-              }
-              return (
-                <button
-                  key={i}
-                  onClick={() => handleAnswer(i)}
-                  disabled={selectedAnswer !== null}
-                  className={`w-full text-left border-2 rounded-xl p-4 flex items-start gap-3 transition-all ${style}`}
-                >
-                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${selectedAnswer !== null && i === question.correct ? 'bg-success text-success-foreground' :
-                      selectedAnswer === i && i !== question.correct ? 'bg-destructive text-destructive-foreground' :
-                        'bg-muted text-muted-foreground'
-                    }`}>
-                    {letters[i]}
-                  </span>
-                  <span className="text-sm font-medium pt-1">{opt}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {selectedAnswer !== null && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 bg-primary/5 border border-primary/20 rounded-xl p-4">
-              <p className="text-sm font-semibold text-primary mb-1">
-                {selectedAnswer === question.correct ? '✅ Chính xác!' : '❌ Sai rồi!'}
-              </p>
-              <p className="text-sm text-muted-foreground">{question.explanation}</p>
-              <button
-                onClick={nextQuestion}
-                className="mt-3 bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
-              >
-                {currentQ < questions.length - 1 ? 'Câu tiếp theo →' : 'Xem kết quả'}
-              </button>
-            </motion.div>
-          )}
+          <QuestionRenderer
+            question={question}
+            onAnswered={handleAnswer}
+            showNext={answeredCurrent}
+            onNext={nextQuestion}
+            isLast={currentQ >= questions.length - 1}
+          />
         </motion.div>
       </AnimatePresence>
     </div>
