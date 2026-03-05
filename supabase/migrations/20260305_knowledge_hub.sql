@@ -27,7 +27,9 @@ CREATE TABLE IF NOT EXISTS public.knowledge_chunks (
 ALTER TABLE public.knowledge_sources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.knowledge_chunks ENABLE ROW LEVEL SECURITY;
 
--- 4. Policies (Admin only for now)
+-- 4. Policies
+CREATE POLICY "Anyone can read sources" ON public.knowledge_sources FOR SELECT USING (true);
 CREATE POLICY "Admin full access to sources" ON public.knowledge_sources FOR ALL USING (public.has_role(auth.uid(), 'admin'));
-CREATE POLICY "Admin full access to chunks" ON public.knowledge_chunks FOR ALL USING (public.has_role(auth.uid(), 'admin'));
+
 CREATE POLICY "Anyone can read chunks" ON public.knowledge_chunks FOR SELECT USING (true);
+CREATE POLICY "Admin full access to chunks" ON public.knowledge_chunks FOR ALL USING (public.has_role(auth.uid(), 'admin'));
