@@ -97,6 +97,8 @@ const Sidebar = () => {
             <NavButton path="/admin/exercises" label="Kho bài tập" icon="quiz" />
             <NavButton path="/admin/students" label="Quản lý học sinh" icon="people" />
             <NavButton path="/admin/videos" label="Kho video" icon="video_library" />
+            <NavButton path="/admin/knowledge" label="Kho tri thức" icon="hub" />
+            <NavButton path="/admin/settings" label="Cài đặt" icon="settings" />
           </>
         )}
       </nav>
@@ -114,8 +116,8 @@ const Sidebar = () => {
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
         className={`md:hidden fixed top-1/2 -translate-y-1/2 z-[60] w-7 h-14 flex items-center justify-center rounded-r-lg shadow-lg transition-all duration-300 ${mobileOpen
-            ? 'left-[220px] bg-primary text-primary-foreground'
-            : 'left-0 bg-primary text-primary-foreground'
+          ? 'left-[220px] bg-primary text-primary-foreground'
+          : 'left-0 bg-primary text-primary-foreground'
           }`}
         aria-label={mobileOpen ? 'Đóng menu' : 'Mở menu'}
       >
