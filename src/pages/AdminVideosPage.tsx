@@ -92,8 +92,9 @@ const AdminVideosPage = () => {
     }
 
     setUploading(true);
-    const ext = file.name.split('.').pop();
-    const path = `grade-${selectedGrade}/${form.lesson_id || 'general'}/${Date.now()}.${ext}`;
+    const cleanFileName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/[^a-zA-Z0-9.\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+    const ext = cleanFileName.split('.').pop();
+    const path = `grade-${selectedGrade}/${form.lesson_id || 'general'}/${Date.now()}_${cleanFileName}`;
 
     const { data, error } = await supabase.storage.from('lesson-videos').upload(path, file);
     if (error) {

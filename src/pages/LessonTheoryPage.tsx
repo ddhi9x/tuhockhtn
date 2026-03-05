@@ -511,7 +511,8 @@ const LessonTheoryPage = () => {
     setGeneratingIllustration(sectionTitle);
     try {
       const safeName = sectionTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').substring(0, 40);
-      const ext = file.name.split('.').pop() || 'png';
+      const cleanFileName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/[^a-zA-Z0-9.\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+      const ext = cleanFileName.split('.').pop() || 'png';
       const fileName = `${lessonId}/${safeName}-${Date.now()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage

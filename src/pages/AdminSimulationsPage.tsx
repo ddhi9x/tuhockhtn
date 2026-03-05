@@ -208,7 +208,8 @@ Yêu cầu:
       }
 
       // Upload to Supabase Storage
-      const fileName = `ai_gen_${lesson.id}_${Date.now()}.html`;
+      const cleanFileName = lesson.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/[^a-zA-Z0-9.\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+      const fileName = `ai_gen_${lesson.id}_${Date.now()}_${cleanFileName}.html`;
       const filePath = `lessons/${fileName}`;
       const blob = new Blob([htmlCode], { type: 'text/html' });
 
@@ -294,9 +295,10 @@ Yêu cầu:
     }
 
     setIsUploading(true);
-    // Create a unique filename
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+    // Create a unique sanitized filename
+    const cleanFileName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/[^a-zA-Z0-9.\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+    const fileExt = cleanFileName.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2, 6)}_${Date.now()}_${cleanFileName}`;
     const filePath = `lessons/${fileName}`;
 
     try {
