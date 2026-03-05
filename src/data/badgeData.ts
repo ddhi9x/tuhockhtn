@@ -143,26 +143,3 @@ export const badges: Badge[] = [
   },
 ];
 
-// Leaderboard mock data (simulated other students)
-export interface LeaderboardEntry {
-  rank: number;
-  name: string;
-  avatar: string;
-  grade: string;
-  score: number;
-  streak: number;
-  exercises: number;
-}
-
-export const mockLeaderboard: LeaderboardEntry[] = [
-  { rank: 1, name: 'Trần Minh Khôi', avatar: '', grade: 'Lớp 9A1', score: 9.8, streak: 45, exercises: 890 },
-  { rank: 2, name: 'Nguyễn Thị Hà', avatar: '', grade: 'Lớp 8A2', score: 9.6, streak: 38, exercises: 756 },
-  { rank: 3, name: 'Lê Hoàng Anh', avatar: '', grade: 'Lớp 9A3', score: 9.5, streak: 32, exercises: 680 },
-  { rank: 4, name: 'Phạm Đức Huy', avatar: '', grade: 'Lớp 7A1', score: 9.3, streak: 28, exercises: 620 },
-  { rank: 5, name: 'Võ Thị Mai', avatar: '', grade: 'Lớp 8A1', score: 9.2, streak: 25, exercises: 580 },
-  { rank: 6, name: 'Đặng Quốc Bảo', avatar: '', grade: 'Lớp 6A2', score: 9.0, streak: 21, exercises: 510 },
-  { rank: 7, name: 'Bùi Thị Ngọc', avatar: '', grade: 'Lớp 7A3', score: 8.8, streak: 18, exercises: 470 },
-  { rank: 8, name: 'Huỳnh Minh Tú', avatar: '', grade: 'Lớp 9A2', score: 8.7, streak: 15, exercises: 430 },
-  { rank: 9, name: 'Trương Đình Phúc', avatar: '', grade: 'Lớp 6A1', score: 8.5, streak: 12, exercises: 380 },
-  { rank: 10, name: 'Ngô Thanh Tâm', avatar: '', grade: 'Lớp 8A3', score: 8.3, streak: 10, exercises: 340 },
-];

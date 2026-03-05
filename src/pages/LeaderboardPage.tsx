@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAppContext } from '@/contexts/AppContext';
-import { badges, mockLeaderboard, UserStats } from '@/data/badgeData';
+import { badges, UserStats } from '@/data/badgeData';
 import MaterialIcon from '@/components/MaterialIcon';
+import { supabase } from '@/integrations/supabase/client';
+import { useEffect } from 'react';
 
 const LeaderboardPage = () => {
   const { state } = useAppContext();
@@ -28,6 +30,20 @@ const LeaderboardPage = () => {
 
   const avgScore = totalExercises > 0 ? Math.round((totalCorrect / totalExercises) * 10 * 10) / 10 : 0;
 
+  const [realStudents, setRealStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      const { data, error } = await supabase.from('students' as any).select('full_name, class_name, grade');
+      if (!error && data) {
+        setRealStudents(data);
+      }
+      setLoading(false);
+    };
+    fetchStudents();
+  }, []);
+
   // Insert user into leaderboard
   const userEntry = {
     rank: 0,
@@ -40,7 +56,22 @@ const LeaderboardPage = () => {
     isUser: true,
   };
 
-  const fullLeaderboard = [...mockLeaderboard.map(e => ({ ...e, isUser: false }))];
+  // Convert real students from DB to entry format
+  const studentEntries = realStudents
+    .filter(s => s.full_name !== state.profile.name) // Don't double count if user is in DB list
+    .map(s => ({
+      rank: 0,
+      name: s.full_name,
+      avatar: '',
+      grade: `${s.class_name} - Khối ${s.grade}`,
+      score: 0, // Other students have 0 for now as scores are local
+      streak: 0,
+      exercises: 0,
+      isUser: false,
+    }));
+
+  const fullLeaderboard = [...studentEntries];
+
   // Find where user would rank
   let userRank = fullLeaderboard.length + 1;
   for (let i = 0; i < fullLeaderboard.length; i++) {
@@ -50,7 +81,9 @@ const LeaderboardPage = () => {
     }
   }
   fullLeaderboard.splice(userRank - 1, 0, { ...userEntry, rank: userRank });
-  // Re-rank
+
+  // Sort and re-rank
+  fullLeaderboard.sort((a, b) => b.score - a.score || b.exercises - a.exercises);
   fullLeaderboard.forEach((e, i) => e.rank = i + 1);
 
   const earnedBadges = badges.filter(b => b.requirement(userStats));
@@ -64,25 +97,28 @@ const LeaderboardPage = () => {
       <div className="flex items-center gap-2 bg-muted rounded-xl p-1 w-fit">
         <button
           onClick={() => setTab('leaderboard')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-            tab === 'leaderboard' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === 'leaderboard' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
         >
           <MaterialIcon name="leaderboard" size={18} />
           Bảng xếp hạng
         </button>
         <button
           onClick={() => setTab('badges')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-            tab === 'badges' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${tab === 'badges' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
         >
           <MaterialIcon name="workspace_premium" size={18} />
           Huy hiệu ({earnedBadges.length}/{badges.length})
         </button>
       </div>
 
-      {tab === 'leaderboard' && (
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground font-medium">Đang tải bảng xếp hạng...</p>
+        </div>
+      ) : tab === 'leaderboard' && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           {/* Top 3 Podium */}
           <div className="grid grid-cols-3 gap-4 mb-6">
@@ -96,14 +132,12 @@ const LeaderboardPage = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 * podiumIdx }}
-                  className={`bg-card rounded-2xl border-2 p-5 text-center transition-all ${
-                    (entry as any).isUser ? 'border-primary shadow-lg' : 'border-border'
-                  } ${isCenter ? 'scale-105 -mt-2' : ''}`}
+                  className={`bg-card rounded-2xl border-2 p-5 text-center transition-all ${(entry as any).isUser ? 'border-primary shadow-lg' : 'border-border'
+                    } ${isCenter ? 'scale-105 -mt-2' : ''}`}
                 >
                   <div className="relative inline-block mb-2">
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${
-                      (entry as any).isUser ? 'bg-primary' : 'bg-muted'
-                    }`}>
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto ${(entry as any).isUser ? 'bg-primary' : 'bg-muted'
+                      }`}>
                       <MaterialIcon
                         name={(entry as any).isUser ? 'person' : 'person'}
                         size={32}
@@ -150,15 +184,13 @@ const LeaderboardPage = () => {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.03 * i }}
-                className={`grid grid-cols-[3rem_1fr_4rem_4rem_4rem] gap-2 px-4 py-3 items-center border-t border-border text-sm ${
-                  (entry as any).isUser ? 'bg-primary/5 font-semibold' : 'hover:bg-muted/30'
-                }`}
+                className={`grid grid-cols-[3rem_1fr_4rem_4rem_4rem] gap-2 px-4 py-3 items-center border-t border-border text-sm ${(entry as any).isUser ? 'bg-primary/5 font-semibold' : 'hover:bg-muted/30'
+                  }`}
               >
                 <span className="font-bold text-muted-foreground">{entry.rank}</span>
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                    (entry as any).isUser ? 'bg-primary' : 'bg-muted'
-                  }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${(entry as any).isUser ? 'bg-primary' : 'bg-muted'
+                    }`}>
                     <MaterialIcon name="person" size={16} className={(entry as any).isUser ? 'text-primary-foreground' : 'text-muted-foreground'} />
                   </div>
                   <div className="min-w-0">
