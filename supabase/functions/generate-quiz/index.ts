@@ -110,9 +110,12 @@ Quy tắc chung:
       });
 
       if (!response.ok) {
-        const err = await response.text();
-        console.error("Gemini Quiz error:", err);
-        throw new Error(`Gemini API Error: ${err}`);
+        const status = response.status;
+        const errText = await response.text();
+        console.error("Gemini API Error:", status, errText);
+        return new Response(JSON.stringify({ error: `Gemini API Error (${status}): ${errText.substring(0, 300)}` }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
 
       const data = await response.json();

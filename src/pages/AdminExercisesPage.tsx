@@ -57,6 +57,7 @@ const AdminExercisesPage = () => {
   const [importParsing, setImportParsing] = useState(false);
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [importSaving, setImportSaving] = useState(false);
+  const [importBatchProgress, setImportBatchProgress] = useState({ current: 0, total: 0 });
   const importFileRef = useRef<HTMLInputElement>(null);
 
   const gradeData = curriculumData.find(g => g.grade === selectedGrade);
@@ -263,9 +264,10 @@ const AdminExercisesPage = () => {
 
     setImportParsing(true);
     setImportPreview([]);
+    setImportBatchProgress({ current: 0, total: 0 });
 
     try {
-      // Extract text from all files
+      // 1. Extract text from all files
       let allText = '';
       for (const file of importFiles) {
         toast.info(`Đang đọc: ${file.name}...`);
@@ -281,7 +283,7 @@ const AdminExercisesPage = () => {
         return;
       }
 
-      // Build curriculum for selected grade
+      // 2. Build curriculum for selected grade
       const gradeData = curriculumData.find(g => g.grade === importGrade);
       if (!gradeData) { setImportParsing(false); return; }
 
@@ -290,31 +292,58 @@ const AdminExercisesPage = () => {
         lessons: ch.lessons.map(l => ({ id: l.id, name: l.name })),
       }));
 
-      toast.info('AI đang phân tích và phân loại câu hỏi...');
+      // 3. Split into chunks (~15,000 characters per chunk)
+      const chunkSize = 15000;
+      const chunks: string[] = [];
+      for (let i = 0; i < allText.length; i += chunkSize) {
+        chunks.push(allText.substring(i, i + chunkSize));
+      }
 
-      const { data, error } = await supabase.functions.invoke('import-exercises', {
-        body: { textContent: allText, grade: importGrade, curriculum },
-      });
+      setImportBatchProgress({ current: 0, total: chunks.length });
+      let allQuestions: any[] = [];
 
-      if (error) throw error;
-      if (data?.error) { toast.error(data.error); setImportParsing(false); return; }
+      // 4. Process each chunk
+      for (let i = 0; i < chunks.length; i++) {
+        setImportBatchProgress(prev => ({ ...prev, current: i + 1 }));
 
-      const questions = data?.questions;
-      if (!Array.isArray(questions) || questions.length === 0) {
-        toast.error('AI không tìm thấy câu hỏi trắc nghiệm trong file.');
+        try {
+          const { data, error } = await supabase.functions.invoke('import-exercises', {
+            body: { textContent: chunks[i], grade: importGrade, curriculum },
+          });
+
+          if (error) {
+            console.error(`Error in chunk ${i + 1}:`, error);
+            toast.error(`Lỗi đoạn ${i + 1}: ${error.message}`);
+            continue; // Skip failed chunk and continue
+          }
+
+          if (data?.questions && Array.isArray(data.questions)) {
+            allQuestions = [...allQuestions, ...data.questions];
+          } else if (data?.error) {
+            console.warn(`AI message in chunk ${i + 1}:`, data.error);
+          }
+        } catch (chunkErr) {
+          console.error(`Chunk ${i + 1} crash:`, chunkErr);
+        }
+      }
+
+      if (allQuestions.length === 0) {
+        toast.error('AI không tìm thấy câu hỏi trắc nghiệm nào trong toàn bộ tài liệu.');
         setImportParsing(false);
         return;
       }
 
-      const withDuplicateCheck = checkDuplicates(questions);
+      // 5. Final processing
+      const withDuplicateCheck = checkDuplicates(allQuestions);
       setImportPreview(withDuplicateCheck);
       const dupeCount = withDuplicateCheck.filter((q: any) => q.isDuplicate).length;
-      toast.success(`Đã tìm thấy ${questions.length} câu hỏi!${dupeCount > 0 ? ` (${dupeCount} câu trùng lặp)` : ''} Xem trước bên dưới.`);
+      toast.success(`Hoàn tất! Phân tích xong ${chunks.length} đoạn. Tìm thấy tổng cộng ${allQuestions.length} câu hỏi!${dupeCount > 0 ? ` (${dupeCount} câu trùng lặp)` : ''}`);
     } catch (err: any) {
       console.error('Import error:', err);
       toast.error('Lỗi khi phân tích file: ' + (err?.message || 'Unknown'));
     }
     setImportParsing(false);
+    setImportBatchProgress({ current: 0, total: 0 });
   };
 
   // Normalize text for duplicate comparison
@@ -844,17 +873,28 @@ const AdminExercisesPage = () => {
                     <button
                       onClick={handleImportFiles}
                       disabled={importParsing || importFiles.length === 0}
-                      className="w-full bg-info text-info-foreground rounded-xl py-2.5 text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="w-full bg-info text-info-foreground rounded-xl py-3 text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex flex-col items-center justify-center gap-1"
                     >
                       {importParsing ? (
                         <>
-                          <div className="w-4 h-4 border-2 border-info-foreground border-t-transparent rounded-full animate-spin" />
-                          AI đang phân tích...
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-info-foreground border-t-transparent rounded-full animate-spin" />
+                            <span>Đang phân tích đoạn {importBatchProgress.current}/{importBatchProgress.total}</span>
+                          </div>
+                          <div className="w-full max-w-[200px] h-1 bg-white/20 rounded-full mt-1 overflow-hidden">
+                            <div
+                              className="h-full bg-white transition-all duration-300"
+                              style={{ width: `${(importBatchProgress.current / (importBatchProgress.total || 1)) * 100}%` }}
+                            />
+                          </div>
                         </>
                       ) : (
                         <>
-                          <MaterialIcon name="auto_awesome" size={16} />
-                          AI Phân tích & phân loại
+                          <div className="flex items-center gap-2">
+                            <MaterialIcon name="auto_awesome" size={18} />
+                            <span>AI Phân tích & phân loại</span>
+                          </div>
+                          <p className="text-[10px] opacity-70 font-normal">Sẽ tự động chia nhỏ file nếu quá lớn</p>
                         </>
                       )}
                     </button>

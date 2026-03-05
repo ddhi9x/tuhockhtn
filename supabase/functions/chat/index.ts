@@ -64,8 +64,10 @@ serve(async (req) => {
         });
 
         if (!response.ok) {
+          const status = response.status;
           const errText = await response.text();
-          throw new Error(`Gemini API Error: ${response.status} - ${errText}`);
+          console.error("Gemini API Error:", status, errText);
+          throw new Error(`Gemini API Error (${status}): ${errText.substring(0, 300)}`);
         }
 
         const data = await response.json();
@@ -87,8 +89,10 @@ serve(async (req) => {
       });
 
       if (!response.ok) {
+        const status = response.status;
         const errText = await response.text();
-        throw new Error(`Gemini API Error: ${response.status} - ${errText}`);
+        console.error("Gemini API Error:", status, errText);
+        throw new Error(`Gemini API Error (${status}): ${errText.substring(0, 300)}`);
       }
 
       // Transform Gemini stream to OpenAI format
