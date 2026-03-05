@@ -46,6 +46,7 @@ const AdminKnowledgeHubPage = () => {
         // Remove special chars, replace spaces with -
         return clean.replace(/[^a-zA-Z0-9.\s-]/g, '')
             .replace(/\s+/g, '-')
+            .replace(/-+/g, '-') // Collapse multiple hyphens
             .toLowerCase();
     };
 
@@ -97,8 +98,14 @@ const AdminKnowledgeHubPage = () => {
                 // 1. Upload to Storage
                 const { error: uploadError } = await supabase.storage
                     .from('textbook-uploads')
-                    .upload(filePath, file);
-                if (uploadError) throw uploadError;
+                    .upload(filePath, file, {
+                        contentType: file.type || 'application/octet-stream',
+                        upsert: true
+                    });
+                if (uploadError) {
+                    console.error('Supabase Upload Error:', uploadError);
+                    throw uploadError;
+                }
 
                 // 2. Create DB record
                 const { data: source, error: dbError } = await (supabase
