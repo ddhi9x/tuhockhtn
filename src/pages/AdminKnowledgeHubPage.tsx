@@ -38,6 +38,17 @@ const AdminKnowledgeHubPage = () => {
         setLoading(false);
     };
 
+    const sanitizeFilename = (filename: string): string => {
+        // Remove accents
+        const clean = filename.normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[đĐ]/g, 'd');
+        // Remove special chars, replace spaces with -
+        return clean.replace(/[^a-zA-Z0-9.\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .toLowerCase();
+    };
+
     const extractTextFromFile = async (file: File): Promise<string> => {
         const ext = file.name.split('.').pop()?.toLowerCase();
 
@@ -80,7 +91,8 @@ const AdminKnowledgeHubPage = () => {
         setUploading(true);
         try {
             for (const file of files) {
-                const filePath = `knowledge/${selectedGrade}/${Date.now()}_${file.name}`;
+                const safeName = sanitizeFilename(file.name);
+                const filePath = `knowledge/${selectedGrade}/${Date.now()}_${safeName}`;
 
                 // 1. Upload to Storage
                 const { error: uploadError } = await supabase.storage
@@ -93,7 +105,7 @@ const AdminKnowledgeHubPage = () => {
                     .from('knowledge_sources' as any)
                     .insert({
                         grade: selectedGrade,
-                        file_name: file.name,
+                        file_name: file.name, // Keep original name for display
                         storage_path: filePath,
                         status: 'pending'
                     } as any)
