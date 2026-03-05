@@ -205,17 +205,17 @@ const AdminExercisesPage = () => {
   // === FILE IMPORT HANDLERS ===
   const extractTextFromFile = async (file: File): Promise<string> => {
     const ext = file.name.split('.').pop()?.toLowerCase();
-    
+
     if (ext === 'txt' || ext === 'md') {
       return await file.text();
     }
-    
+
     if (ext === 'docx') {
       const arrayBuffer = await file.arrayBuffer();
       const result = await mammoth.extractRawText({ arrayBuffer });
       return result.value;
     }
-    
+
     if (ext === 'xlsx' || ext === 'xls') {
       const arrayBuffer = await file.arrayBuffer();
       const workbook = XLSX.read(arrayBuffer, { type: 'array' });
@@ -226,7 +226,7 @@ const AdminExercisesPage = () => {
       }
       return text;
     }
-    
+
     if (ext === 'pdf') {
       // Basic text extraction attempt
       const text = await file.text();
@@ -234,16 +234,16 @@ const AdminExercisesPage = () => {
       toast.error(`PDF "${file.name}" không thể đọc tự động. Hãy copy-paste nội dung.`);
       return '';
     }
-    
+
     return await file.text();
   };
 
   const handleImportFiles = async () => {
     if (importFiles.length === 0) { toast.error('Vui lòng chọn file.'); return; }
-    
+
     setImportParsing(true);
     setImportPreview([]);
-    
+
     try {
       // Extract text from all files
       let allText = '';
@@ -254,7 +254,7 @@ const AdminExercisesPage = () => {
           allText += `\n--- FILE: ${file.name} ---\n${text}\n`;
         }
       }
-      
+
       if (allText.length < 30) {
         toast.error('Không đọc được nội dung từ các file.');
         setImportParsing(false);
@@ -264,14 +264,14 @@ const AdminExercisesPage = () => {
       // Build curriculum for selected grade
       const gradeData = curriculumData.find(g => g.grade === importGrade);
       if (!gradeData) { setImportParsing(false); return; }
-      
+
       const curriculum = gradeData.chapters.map(ch => ({
         name: ch.name,
         lessons: ch.lessons.map(l => ({ id: l.id, name: l.name })),
       }));
 
       toast.info('AI đang phân tích và phân loại câu hỏi...');
-      
+
       const { data, error } = await supabase.functions.invoke('import-exercises', {
         body: { textContent: allText, grade: importGrade, curriculum },
       });
@@ -353,9 +353,9 @@ const AdminExercisesPage = () => {
   const filteredExercises = selectedLessonFilter
     ? exercises.filter(e => e.lesson_id === selectedLessonFilter)
     : exercises.filter(e => {
-        const chapterLessons = chapters.find(c => c.id === selectedChapter)?.lessons || [];
-        return chapterLessons.some(l => l.id === e.lesson_id);
-      });
+      const chapterLessons = chapters.find(c => c.id === selectedChapter)?.lessons || [];
+      return chapterLessons.some(l => l.id === e.lesson_id);
+    });
 
   if (loading) {
     return (
@@ -403,9 +403,8 @@ const AdminExercisesPage = () => {
         <div className="flex gap-2 mb-4">
           {[6, 7, 8, 9].map(g => (
             <button key={g} onClick={() => { setSelectedGrade(g); setSelectedChapter(''); setSelectedLessonFilter(''); }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                selectedGrade === g ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}>
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedGrade === g ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}>
               Lớp {g}
             </button>
           ))}
@@ -456,12 +455,10 @@ const AdminExercisesPage = () => {
                                 className="flex items-center gap-2 flex-1 min-w-0 text-left"
                               >
                                 <span className="text-sm font-medium truncate">{lesson.name}</span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
-                                  lessonExercises.length >= 30 ? 'bg-success/10 text-success' :
-                                  lessonExercises.length > 0 ? 'bg-warning/10 text-warning' :
-                                  'bg-muted text-muted-foreground'
-                                }`}>
-                                  {lessonExercises.length}/30
+                                <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${lessonExercises.length > 0 ? 'bg-primary/10 text-primary' :
+                                    'bg-muted text-muted-foreground'
+                                  }`}>
+                                  {lessonExercises.length} câu
                                 </span>
                               </button>
                               <div className="flex items-center gap-1 shrink-0">
@@ -578,9 +575,8 @@ const AdminExercisesPage = () => {
                       <div key={i} className="flex items-center gap-2 mb-2">
                         <button
                           onClick={() => setFormCorrect(i)}
-                          className={`w-8 h-8 rounded-lg text-sm font-bold shrink-0 transition-all ${
-                            formCorrect === i ? 'bg-success text-success-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                          }`}
+                          className={`w-8 h-8 rounded-lg text-sm font-bold shrink-0 transition-all ${formCorrect === i ? 'bg-success text-success-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                            }`}
                         >
                           {letter}
                         </button>
@@ -613,9 +609,8 @@ const AdminExercisesPage = () => {
                     <div className="flex gap-2">
                       {DIFFICULTY_OPTIONS.map(d => (
                         <button key={d.value} onClick={() => setFormDifficulty(d.value)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                            formDifficulty === d.value ? d.color + ' ring-1 ring-current' : 'bg-muted text-muted-foreground'
-                          }`}>
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${formDifficulty === d.value ? d.color + ' ring-1 ring-current' : 'bg-muted text-muted-foreground'
+                            }`}>
                           {d.label}
                         </button>
                       ))}
@@ -688,15 +683,23 @@ const AdminExercisesPage = () => {
 
                   <div>
                     <label className="text-xs font-medium text-muted-foreground block mb-2">Số lượng câu hỏi</label>
-                    <div className="flex gap-2">
-                      {[5, 10, 15, 20].map(n => (
+                    <div className="flex gap-2 flex-wrap">
+                      {[5, 10, 15, 20, 30, 50].map(n => (
                         <button key={n} onClick={() => setAiCount(n)}
-                          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${
-                            aiCount === n ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                          }`}>
+                          className={`px-3 py-2 rounded-lg text-sm font-bold transition-all ${aiCount === n ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                            }`}>
                           {n}
                         </button>
                       ))}
+                      <input
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={aiCount}
+                        onChange={e => setAiCount(Math.min(50, Math.max(1, Number(e.target.value) || 5)))}
+                        className="w-16 px-2 py-2 rounded-lg text-sm font-bold text-center bg-muted border border-border focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        title="Nhập số tùy chỉnh (1-50)"
+                      />
                     </div>
                   </div>
 
@@ -764,9 +767,8 @@ const AdminExercisesPage = () => {
                     <div className="flex gap-2">
                       {[6, 7, 8, 9].map(g => (
                         <button key={g} onClick={() => setImportGrade(g)}
-                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                            importGrade === g ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                          }`}>
+                          className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${importGrade === g ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                            }`}>
                           Lớp {g}
                         </button>
                       ))}
@@ -877,9 +879,8 @@ const AdminExercisesPage = () => {
                               </div>
                               <div className="space-y-1 max-h-48 overflow-y-auto">
                                 {questions.map((q: any) => (
-                                  <div key={q._index} className={`flex items-start gap-2 rounded-lg px-3 py-2 ${
-                                    q.isDuplicate ? 'bg-warning/10 border border-warning/20' : 'bg-muted/30'
-                                  }`}>
+                                  <div key={q._index} className={`flex items-start gap-2 rounded-lg px-3 py-2 ${q.isDuplicate ? 'bg-warning/10 border border-warning/20' : 'bg-muted/30'
+                                    }`}>
                                     <span className="text-[10px] text-muted-foreground font-mono mt-0.5">{q._index + 1}.</span>
                                     {q.isDuplicate && (
                                       <span className="text-[9px] bg-warning text-warning-foreground px-1.5 py-0.5 rounded-full font-bold shrink-0 mt-0.5">TRÙNG</span>

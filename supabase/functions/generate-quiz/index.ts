@@ -31,7 +31,7 @@ serve(async (req) => {
     }
 
 
-    const count = Math.min(Math.max(numQuestions || 5, 1), 20);
+    const count = Math.min(Math.max(numQuestions || 5, 1), 50);
 
     const systemPrompt = `Bạn là một giáo viên Khoa học Tự nhiên cấp THCS giỏi, chuyên soạn câu hỏi trắc nghiệm chất lượng cao theo chương trình sách giáo khoa "Kết nối tri thức với cuộc sống".
 
@@ -47,13 +47,13 @@ Trả về JSON array, mỗi phần tử có: question, options (array 4 strings
     const userPrompt = `Tạo ${count} câu hỏi trắc nghiệm lớp ${grade} cho bài "${lessonName}" (Chương ${chapterName}).`;
 
     if (GEMINI_API_KEY) {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
           systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: { temperature: 0.7 }
+          generationConfig: { temperature: 0.7, responseMimeType: "application/json" }
         }),
       });
 
