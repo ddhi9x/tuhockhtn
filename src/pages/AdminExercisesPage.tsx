@@ -33,6 +33,7 @@ const AdminExercisesPage = () => {
   const [selectedGrade, setSelectedGrade] = useState(6);
   const [selectedChapter, setSelectedChapter] = useState('');
   const [selectedLessonFilter, setSelectedLessonFilter] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -153,7 +154,37 @@ const AdminExercisesPage = () => {
     const { error } = await supabase.from('exercises').delete().eq('id', id);
     if (error) { toast.error('Lỗi xóa: ' + error.message); return; }
     toast.success('Đã xóa.');
+    setSelectedIds(prev => prev.filter(sid => sid !== id));
     fetchExercises();
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Xóa ${selectedIds.length} câu hỏi đã chọn?`)) return;
+
+    const { error } = await supabase.from('exercises').delete().in('id', selectedIds);
+    if (error) { toast.error('Lỗi xóa hàng loạt: ' + error.message); return; }
+
+    toast.success(`Đã xóa ${selectedIds.length} câu hỏi.`);
+    setSelectedIds([]);
+    fetchExercises();
+  };
+
+  const toggleSelectExercise = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectLesson = (lessonId: string, lessonExercises: ExerciseRecord[]) => {
+    const lessonIds = lessonExercises.map(ex => ex.id);
+    const allSelected = lessonIds.every(id => selectedIds.includes(id));
+
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !lessonIds.includes(id)));
+    } else {
+      setSelectedIds(prev => [...new Set([...prev, ...lessonIds])]);
+    }
   };
 
   // AI Batch Generation
@@ -445,6 +476,15 @@ const AdminExercisesPage = () => {
               <MaterialIcon name="auto_awesome" size={18} />
               AI Tạo hàng loạt
             </button>
+            {selectedIds.length > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                className="flex items-center gap-2 bg-destructive text-destructive-foreground px-4 py-2.5 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
+              >
+                <MaterialIcon name="delete_sweep" size={18} />
+                Xóa đã chọn ({selectedIds.length})
+              </button>
+            )}
           </div>
         </div>
 
@@ -512,6 +552,17 @@ const AdminExercisesPage = () => {
                               </button>
                               <div className="flex items-center gap-1 shrink-0">
                                 <button
+                                  onClick={() => toggleSelectLesson(lesson.id, lessonExercises)}
+                                  className={`p-1.5 rounded-lg border transition-colors ${lessonExercises.length > 0 && lessonExercises.every(ex => selectedIds.includes(ex.id))
+                                    ? 'bg-primary border-primary text-primary-foreground'
+                                    : 'hover:bg-muted border-transparent text-muted-foreground'
+                                    }`}
+                                  title="Chọn tất cả trong bài này"
+                                  disabled={lessonExercises.length === 0}
+                                >
+                                  <MaterialIcon name="rule" size={18} />
+                                </button>
+                                <button
                                   onClick={() => openAddForm(lesson.id)}
                                   className="p-1.5 hover:bg-muted rounded-lg" title="Thêm thủ công"
                                 >
@@ -539,7 +590,15 @@ const AdminExercisesPage = () => {
                                     const diff = DIFFICULTY_OPTIONS.find(d => d.value === ex.difficulty_level);
                                     return (
                                       <div key={ex.id} className="px-4 py-3 border-b border-border/50 last:border-b-0 flex items-start gap-3">
-                                        <span className="text-xs text-muted-foreground font-mono mt-0.5 shrink-0 w-6">
+                                        <div className="mt-1">
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedIds.includes(ex.id)}
+                                            onChange={() => toggleSelectExercise(ex.id)}
+                                            className="w-4 h-4 rounded border-border text-primary focus:ring-primary focus:ring-offset-0 cursor-pointer"
+                                          />
+                                        </div>
+                                        <span className="text-xs text-muted-foreground font-mono mt-1 shrink-0 w-6">
                                           {idx + 1}.
                                         </span>
                                         <div className="flex-1 min-w-0">
