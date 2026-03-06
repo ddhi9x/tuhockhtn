@@ -40,7 +40,11 @@ serve(async (req) => {
     ).join('\n');
 
     const mappingPrompt = `Bạn là chuyên gia phân tích cấu trúc tài liệu giáo khoa KHTN.
-Nhiệm vụ: Duyệt qua toàn bộ văn bản và xác định các ranh giới (đoạn bắt đầu/kết thúc) của từng bài học.
+Nhiệm vụ: Duyệt qua toàn bộ văn bản và xác định CHÍNH XÁC các ranh giới (đoạn bắt đầu/kết thúc) của TẤT CẢ bài học xuất hiện trong file.
+
+⚠️ LƯU Ý QUAN TRỌNG: 
+- File tài liệu có thể rất dài, hãy kiên nhẫn tìm các bài học ở cả đoạn giữa và cuối file (như Bài 16, 17, 18...).
+- Dựa vào tiêu đề dạng "Bài X:", "Dạng X:", hoặc tiêu đề in hoa để nhận diện.
 
 DANH SÁCH BÀI HỌC CẦN TÌM:
 ${lessonList}
@@ -48,17 +52,17 @@ ${lessonList}
 Yêu cầu output JSON định dạng:
 {
   "map": [
-    { "lesson_id": "id", "start_snippet": "Câu văn bắt đầu bài học (khoảng 50 ký tự)", "end_snippet": "Câu văn kết thúc bài học (hoảng 50 ký tự)" }
+    { "lesson_id": "id", "start_snippet": "Câu văn bắt đầu bài học (khoảng 50 ký tự)", "end_snippet": "Câu văn kết thúc bài học (khoảng 50 ký tự)" }
   ]
 }
-- Nếu một bài học không xuất hiện trong tài liệu, đừng đưa vào map.
-- Đảm bảo trật tự các bài học đúng như trong file.`;
+- Chỉ đưa vào map những bài THỰC SỰ có nội dung trong file.
+- Đảm bảo trật tự các bài học đúng như sự xuất hiện trong file.`;
 
     const mappingResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: `VĂN BẢN TÀI LIỆU:\n\n${textContent.substring(0, 100000)}` }] }],
+        contents: [{ role: 'user', parts: [{ text: `VĂN BẢN TÀI LIỆU:\n\n${textContent.substring(0, 200000)}` }] }],
         systemInstruction: { parts: [{ text: mappingPrompt }] },
         generationConfig: { responseMimeType: "application/json" }
       }),
