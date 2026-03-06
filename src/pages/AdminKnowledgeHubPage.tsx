@@ -152,7 +152,12 @@ const AdminKnowledgeHubPage = () => {
             const gradeData = curriculumData.find(g => g.grade === grade);
             const curriculum = gradeData?.chapters.map(ch => ({
                 name: ch.name,
-                lessons: ch.lessons.map(l => ({ id: l.id, name: l.name }))
+                subject: ch.subject,
+                lessons: ch.lessons.map(l => ({
+                    id: l.id,
+                    name: l.name,
+                    summary: l.summary
+                }))
             })) || [];
 
             await supabase.functions.invoke('ingest-knowledge', {

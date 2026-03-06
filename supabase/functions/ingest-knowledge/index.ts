@@ -9,8 +9,11 @@ const corsHeaders = {
 serve(async (req) => {
     if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+    let sourceId: string | null = null;
     try {
-        const { sourceId, textContent, grade, curriculum } = await req.json();
+        const body = await req.json();
+        sourceId = body.sourceId;
+        const { textContent, grade, curriculum } = body;
         const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
         const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -25,19 +28,25 @@ serve(async (req) => {
         await supabase.from('knowledge_sources').update({ status: 'processing' }).eq('id', sourceId);
 
         const lessonList = curriculum.map((ch: any) =>
-            ch.lessons.map((l: any) => `${l.id} | ${ch.name} | ${l.name}`).join('\n')
+            ch.lessons.map((l: any) =>
+                `ID: ${l.id} | Bài: ${l.name} | Chủ đề chính: ${l.summary || 'Không có mô tả'}`
+            ).join('\n')
         ).join('\n');
 
         const systemPrompt = `Bạn là chuyên gia phân tích giáo trình Khoa học tự nhiên (KHTN) THCS. 
-Nhiệm vụ: Phân tích đoạn văn bản này để trích xuất LÝ THUYẾT và BÀI TẬP.
+Nhiệm vụ: Phân tích đoạn văn bản này để trích xuất LÝ THUYẾT và BÀI TẬP trắc nghiệm.
 
-DANH SÁCH BÀI HỌC (Sử dụng đúng 'lesson_id'):
+DANH SÁCH BÀI HỌC VÀ CHỦ ĐỀ ĐỂ PHÂN LOẠI (CỰC KỲ QUAN TRỌNG):
 ${lessonList}
 
-QUY TẮC TRÍCH XUẤT CỰC KỲ QUAN TRỌNG:
-1. PHÂN LOẠI CHÍNH XÁC: Đừng gom tất cả câu hỏi vào một bài học (ví dụ: đừng gom hết vào "Khối lượng riêng" nếu câu hỏi nói về "Áp suất" hay "Lực đẩy Archimedes"). 
-2. CHIẾT XUẤT TỪNG CÂU: Với MỖI câu hỏi, hãy kiểm tra kỹ từ khóa để khớp với 'lesson_id' phù hợp nhất trong danh sách trên.
-3. KHÔNG BỎ SÓT: Trích xuất TOÀN BỘ các câu hỏi trắc nghiệm có trong đoạn văn bản.
+QUY TẮC PHÂN LOẠI "SÁT SAO":
+1. KHÔNG GOM BỪA: Tuyệt đối không dồn bài tập của cả chương vào 1 bài học duy nhất. 
+2. SO KHỚP TỪ KHÓA: 
+   - Nếu câu hỏi có từ "Khối lượng", "Thể tích", "Khối lượng riêng" -> Khớp vào bài Khối lượng riêng.
+   - Nếu câu hỏi có từ "Áp suất", "Lực kế", "Diện tích bị ép" -> Khớp vào bài Áp suất.
+   - Nếu câu hỏi có từ "Lực đẩy", "nhúng vào nước", "Archimedes" -> Khớp vào bài Lực đẩy Archimedes.
+   - Tương tự cho các bài khác, hãy đọc kỹ câu hỏi để chọn 'lesson_id' chính xác nhất.
+3. KHÔNG BỎ SÓT: Trích xuất TOÀN BỘ các câu hỏi có trong đoạn văn bản.
 
 Yêu cầu output JSON định dạng:
 {
@@ -49,11 +58,11 @@ Yêu cầu output JSON định dạng:
   ]
 }
 
-- Nếu không khớp được bài nào cụ thể, hãy để 'lesson_id' trống hoặc khớp theo chương gần nhất.
-- CHỈ trả về JSON nguyên khối.`;
+- Nếu cực kỳ không chắc chắn, hãy để 'lesson_id' trống.
+- CHỈ trả về JSON nguyên khối, không giải thích gì thêm.`;
 
-        // Split text into batches of ~15k chars (ensure output doesn't hit token limit)
-        const BATCH_SIZE = 15000;
+        // Split text into batches of ~12k chars for high-density question files
+        const BATCH_SIZE = 12000;
         const textBatches: string[] = [];
         for (let i = 0; i < textContent.length; i += BATCH_SIZE) {
             textBatches.push(textContent.substring(i, i + BATCH_SIZE));
