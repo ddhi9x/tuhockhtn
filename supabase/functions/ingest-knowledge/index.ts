@@ -28,14 +28,16 @@ serve(async (req) => {
             ch.lessons.map((l: any) => `${l.id} | ${ch.name} | ${l.name}`).join('\n')
         ).join('\n');
 
-        const systemPrompt = `Bạn là chuyên gia phân tích tài liệu giáo khoa KHTN THCS. 
-Đây là một PHẦN của tài liệu lớn. 
-Nhiệm vụ: Phân tích đoạn văn bản này và trích xuất:
-1. LÝ THUYẾT: Chia nhỏ văn bản thành các đoạn (chunks) theo từng bài học.
-2. BÀI TẬP: Tìm các câu hỏi trắc nghiệm có trong văn bản.
+        const systemPrompt = `Bạn là chuyên gia phân tích giáo trình Khoa học tự nhiên (KHTN) THCS. 
+Nhiệm vụ: Phân tích đoạn văn bản này để trích xuất LÝ THUYẾT và BÀI TẬP.
 
-Danh sách bài học lớp ${grade}:
+DANH SÁCH BÀI HỌC (Sử dụng đúng 'lesson_id'):
 ${lessonList}
+
+QUY TẮC TRÍCH XUẤT CỰC KỲ QUAN TRỌNG:
+1. PHÂN LOẠI CHÍNH XÁC: Đừng gom tất cả câu hỏi vào một bài học (ví dụ: đừng gom hết vào "Khối lượng riêng" nếu câu hỏi nói về "Áp suất" hay "Lực đẩy Archimedes"). 
+2. CHIẾT XUẤT TỪNG CÂU: Với MỖI câu hỏi, hãy kiểm tra kỹ từ khóa để khớp với 'lesson_id' phù hợp nhất trong danh sách trên.
+3. KHÔNG BỎ SÓT: Trích xuất TOÀN BỘ các câu hỏi trắc nghiệm có trong đoạn văn bản.
 
 Yêu cầu output JSON định dạng:
 {
@@ -47,12 +49,11 @@ Yêu cầu output JSON định dạng:
   ]
 }
 
-- Hãy cố gắng khớp đúng lesson_id từ danh sách.
-- Nếu không chắc chắn về bài học, có thể để trống lesson_id hoặc khớp theo chương.
-- CHỈ trả về JSON.`;
+- Nếu không khớp được bài nào cụ thể, hãy để 'lesson_id' trống hoặc khớp theo chương gần nhất.
+- CHỈ trả về JSON nguyên khối.`;
 
-        // Split text into batches of ~25k chars
-        const BATCH_SIZE = 25000;
+        // Split text into batches of ~15k chars (ensure output doesn't hit token limit)
+        const BATCH_SIZE = 15000;
         const textBatches: string[] = [];
         for (let i = 0; i < textContent.length; i += BATCH_SIZE) {
             textBatches.push(textContent.substring(i, i + BATCH_SIZE));
@@ -72,9 +73,12 @@ Yêu cầu output JSON định dạng:
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: `Đoạn tài liệu ${b + 1}/${textBatches.length}:\n\n${currentBatch}` }] }],
+                        contents: [{ role: 'user', parts: [{ text: `PHẦN TÀI LIỆU ${b + 1}/${textBatches.length}:\n\n${currentBatch}` }] }],
                         systemInstruction: { parts: [{ text: systemPrompt }] },
-                        generationConfig: { responseMimeType: "application/json" }
+                        generationConfig: {
+                            temperature: 0.1,
+                            responseMimeType: "application/json"
+                        }
                     }),
                 });
 
