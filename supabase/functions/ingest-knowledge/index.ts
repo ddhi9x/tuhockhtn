@@ -60,116 +60,134 @@ Yêu cầu output JSON định dạng:
 - GHI CHÚ: Trường 'reasoning' để bạn tự biện luận lý do chọn bài học (dựa trên tiêu đề hoặc từ khóa tìm được).
 - CHỈ trả về JSON nguyên khối.`;
 
-        // Split text into batches with OVERLAP to maintain context
-        const BATCH_SIZE = 12000;
-        const OVERLAP = 1000;
-        const textBatches: string[] = [];
+        // --- PASS 1: STRUCTURAL MAPPING ---
+        console.log(`PASS 1: Mapping structural boundaries for ${sourceId}`);
+        const mappingPrompt = `Bạn là chuyên gia phân tích cấu trúc tài liệu giáo khoa KHTN.
+Nhiệm vụ: Duyệt qua toàn bộ văn bản và xác định các ranh giới (đoạn bắt đầu/kết thúc) của từng bài học.
 
-        let currentPos = 0;
-        while (currentPos < textContent.length) {
-            const end = Math.min(currentPos + BATCH_SIZE, textContent.length);
-            textBatches.push(textContent.substring(currentPos, end));
-            if (end === textContent.length) break;
-            currentPos += (BATCH_SIZE - OVERLAP); // Move forward but keep some overlap
-        }
+DANH SÁCH BÀI HỌC CẦN TÌM:
+${lessonList}
 
-        console.log(`Processing ${textBatches.length} batches for source ${sourceId}`);
+Yêu cầu output JSON định dạng:
+{
+  "map": [
+    { "lesson_id": "id", "start_snippet": "Câu văn bắt đầu bài học (khoảng 50 ký tự)", "end_snippet": "Câu văn kết thúc bài học (hoảng 50 ký tự)" }
+  ]
+}
+- Nếu một bài học không xuất hiện trong tài liệu, đừng đưa vào map.
+- Đảm bảo trật tự các bài học đúng như trong file.`;
 
+        const mappingResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: `VĂN BẢN TÀI LIỆU:\n\n${textContent.substring(0, 100000)}` }] }], // Scan first 100k chars for structure
+                systemInstruction: { parts: [{ text: mappingPrompt }] },
+                generationConfig: { responseMimeType: "application/json" }
+            }),
+        });
+
+        if (!mappingResponse.ok) throw new Error("Structural mapping failed: " + await mappingResponse.text());
+        const mappingResult = await mappingResponse.json();
+        const lessonMap = JSON.parse(mappingResult.candidates?.[0]?.content?.parts?.[0]?.text || '{"map":[]}').map;
+
+        console.log(`Found ${lessonMap.length} lessons in map. Starting extraction...`);
+
+        // --- PASS 2: TARGETED EXTRACTION ---
         let totalTheory = 0;
         let totalExercises = 0;
 
-        for (let b = 0; b < textBatches.length; b++) {
-            console.log(`Processing batch ${b + 1}/${textBatches.length}...`);
-            const currentBatch = textBatches[b];
+        for (const entry of lessonMap) {
+            console.log(`Extracting: ${entry.lesson_id}...`);
+
+            // Find boundaries in text
+            const startIdx = entry.start_snippet ? textContent.indexOf(entry.start_snippet) : -1;
+            const endIdx = entry.end_snippet ? textContent.indexOf(entry.end_snippet) : -1;
+
+            let segment = "";
+            if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+                segment = textContent.substring(startIdx, endIdx + entry.end_snippet.length);
+            } else if (startIdx !== -1) {
+                segment = textContent.substring(startIdx, startIdx + 20000); // Fallback to window
+            } else {
+                continue; // Skip if can't find boundary
+            }
+
+            const extractionPrompt = `Bạn là chuyên gia trích xuất dữ liệu KHTN THCS.
+Nhiệm vụ: Trích xuất LÝ THUYẾT và tối đa 25 CÂU HỎI TRẮC NGHIỆM hay nhất cho Bài học sau:
+BÀI HỌC: ${entry.lesson_id}
+
+QUY TẮC:
+1. CHỈ trích xuất nội dung thuộc về bài học này.
+2. Lấy tối đa 25 câu hỏi trắc nghiệm chất lượng nhất (ưu tiên có cả 4 phương án).
+3. Đảm bảo JSON hợp lệ.
+
+Yêu cầu output JSON:
+{
+  "theory": { "content": "...", "key_points": ["..."] },
+  "exercises": [
+    { "question": "...", "options": ["A...", "B..."], "correct": 0, "explanation": "..." }
+  ]
+}`;
 
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`, {
+                const extractionResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: `PHẦN TÀI LIỆU (${b + 1}/${textBatches.length}):\n\n${currentBatch}` }] }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] },
-                        generationConfig: {
-                            temperature: 0.0, // Force most deterministic output
-                            responseMimeType: "application/json"
-                        }
+                        contents: [{ role: 'user', parts: [{ text: `ĐOẠN VĂN BẢN TRÍCH XUẤT:\n\n${segment}` }] }],
+                        systemInstruction: { parts: [{ text: extractionPrompt }] },
+                        generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
                     }),
                 });
 
-                if (!response.ok) {
-                    console.error(`Batch ${b + 1} failed:`, await response.text());
-                    continue;
-                }
+                if (!extractionResponse.ok) continue;
 
-                const result = await response.json();
+                const result = await extractionResponse.json();
                 const parsed = JSON.parse(result.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
 
-                // 1. Save theory chunks
-                const chunks = parsed.theory_chunks || [];
-                if (chunks.length > 0) {
-                    const chunkRows = chunks.map((c: any) => ({
-                        source_id: sourceId,
-                        grade,
-                        lesson_id: c.lesson_id,
-                        content: c.content,
-                        metadata: { key_points: c.key_points }
-                    }));
-                    await supabase.from('knowledge_chunks').insert(chunkRows);
-
-                    // Update lesson_theory
-                    for (const piece of chunks) {
-                        if (!piece.lesson_id) continue;
-                        const { data: existing } = await supabase.from('lesson_theory').select('content').eq('lesson_id', piece.lesson_id).maybeSingle();
-                        if (existing) {
-                            const newContent = existing.content + "\n\n--- Trích xuất từ tài liệu mới ---\n" + piece.content;
-                            await supabase.from('lesson_theory').update({ content: newContent }).eq('lesson_id', piece.lesson_id);
-                        } else {
-                            const info = curriculum.flatMap((ch: any) => ch.lessons).find((l: any) => l.id === piece.lesson_id);
-                            if (info) {
-                                await supabase.from('lesson_theory').insert({
-                                    lesson_id: piece.lesson_id,
-                                    lesson_name: info.name,
-                                    grade,
-                                    content: piece.content,
-                                    summary: piece.content.substring(0, 500)
-                                });
-                            }
+                // Save Theory
+                if (parsed.theory) {
+                    const { data: existing } = await supabase.from('lesson_theory').select('id, content').eq('lesson_id', entry.lesson_id).maybeSingle();
+                    if (existing) {
+                        const newContent = existing.content + "\n\n--- Cập nhật mới ---\n" + parsed.theory.content;
+                        await supabase.from('lesson_theory').update({ content: newContent, updated_at: new Date().toISOString() }).eq('id', existing.id);
+                    } else {
+                        const info = curriculum.flatMap((ch: any) => ch.lessons).find((l: any) => l.id === entry.lesson_id);
+                        if (info) {
+                            await supabase.from('lesson_theory').insert({
+                                lesson_id: entry.lesson_id,
+                                lesson_name: info.name,
+                                grade,
+                                content: parsed.theory.content,
+                                summary: parsed.theory.content.substring(0, 500),
+                                key_points: parsed.theory.key_points
+                            });
                         }
                     }
-                    totalTheory += chunks.length;
+                    totalTheory++;
                 }
 
-                // 2. Save exercises
+                // Save Exercises
                 const exercises = parsed.exercises || [];
                 if (exercises.length > 0) {
-                    const exerciseRows = exercises.map((ex: any) => {
-                        let chapter_name = "Khác";
-                        let lesson_name = "Nạp từ file";
-                        for (const ch of curriculum) {
-                            const l = ch.lessons.find((l: any) => l.id === ex.lesson_id);
-                            if (l) {
-                                chapter_name = ch.name;
-                                lesson_name = l.name;
-                                break;
-                            }
-                        }
-                        return {
-                            grade,
-                            chapter_name,
-                            lesson_id: ex.lesson_id,
-                            lesson_name,
-                            question: ex.question,
-                            options: ex.options,
-                            correct_answer: ex.correct,
-                            explanation: ex.explanation,
-                            is_ai_generated: true
-                        };
-                    });
+                    const exInfo = curriculum.flatMap((ch: any) => ch.lessons.map((l: any) => ({ ...l, chapter: ch.name }))).find((l: any) => l.id === entry.lesson_id);
+                    const exerciseRows = exercises.map((ex: any) => ({
+                        grade,
+                        chapter_name: exInfo?.chapter || "Khác",
+                        lesson_id: entry.lesson_id,
+                        lesson_name: exInfo?.name || "Nạp từ file",
+                        question: ex.question,
+                        options: ex.options,
+                        correct_answer: ex.correct,
+                        explanation: ex.explanation,
+                        is_ai_generated: true
+                    }));
                     await supabase.from('exercises').insert(exerciseRows);
                     totalExercises += exercises.length;
                 }
-            } catch (batchErr) {
-                console.error(`Error processing batch ${b + 1}:`, batchErr);
+            } catch (err) {
+                console.error(`Error in extraction pass for ${entry.lesson_id}:`, err);
             }
         }
 
