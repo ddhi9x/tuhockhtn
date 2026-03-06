@@ -58,6 +58,7 @@ const AdminExercisesPage = () => {
   const [importParsing, setImportParsing] = useState(false);
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [importSaving, setImportSaving] = useState(false);
+  const [importTargetLesson, setImportTargetLesson] = useState('');
   const [importBatchProgress, setImportBatchProgress] = useState({ current: 0, total: 0 });
   const importFileRef = useRef<HTMLInputElement>(null);
 
@@ -326,7 +327,12 @@ const AdminExercisesPage = () => {
       setImportBatchProgress({ current: 0, total: 1 });
 
       const { data, error } = await supabase.functions.invoke('import-exercises', {
-        body: { textContent: allText, grade: importGrade, curriculum },
+        body: {
+          textContent: allText,
+          grade: importGrade,
+          curriculum,
+          targetLessonId: importTargetLesson || undefined
+        },
       });
 
       if (error) throw error;
@@ -857,6 +863,28 @@ const AdminExercisesPage = () => {
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Target Lesson selection (Optional) */}
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground block mb-2">
+                      Bài học mục tiêu (Không bắt buộc)
+                    </label>
+                    <select
+                      value={importTargetLesson}
+                      onChange={(e) => setImportTargetLesson(e.target.value)}
+                      className="w-full bg-muted border-none rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-info/50 outline-none"
+                    >
+                      <option value="">-- Để AI tự phân loại (Mặc định) --</option>
+                      {curriculumData.find(g => g.grade === importGrade)?.chapters.flatMap(ch =>
+                        ch.lessons.map(l => (
+                          <option key={l.id} value={l.id}>{ch.name} - {l.name}</option>
+                        ))
+                      )}
+                    </select>
+                    <p className="text-[10px] text-muted-foreground mt-1 px-1 italic">
+                      * Nếu chọn, AI sẽ nạp 100% nội dung vào bài học này, giúp nạp theo chủ đề chính xác tuyệt đối.
+                    </p>
                   </div>
 
                   {/* File upload area */}
