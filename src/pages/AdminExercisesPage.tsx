@@ -323,52 +323,28 @@ const AdminExercisesPage = () => {
         lessons: ch.lessons.map(l => ({ id: l.id, name: l.name })),
       }));
 
-      // 3. Split into chunks (~15,000 characters per chunk)
-      const chunkSize = 15000;
-      const chunks: string[] = [];
-      for (let i = 0; i < allText.length; i += chunkSize) {
-        chunks.push(allText.substring(i, i + chunkSize));
-      }
+      setImportBatchProgress({ current: 0, total: 1 });
 
-      setImportBatchProgress({ current: 0, total: chunks.length });
-      let allQuestions: any[] = [];
+      const { data, error } = await supabase.functions.invoke('import-exercises', {
+        body: { textContent: allText, grade: importGrade, curriculum },
+      });
 
-      // 4. Process each chunk
-      for (let i = 0; i < chunks.length; i++) {
-        setImportBatchProgress(prev => ({ ...prev, current: i + 1 }));
+      if (error) throw error;
 
-        try {
-          const { data, error } = await supabase.functions.invoke('import-exercises', {
-            body: { textContent: chunks[i], grade: importGrade, curriculum },
-          });
-
-          if (error) {
-            console.error(`Error in chunk ${i + 1}:`, error);
-            toast.error(`Lỗi đoạn ${i + 1}: ${error.message}`);
-            continue; // Skip failed chunk and continue
-          }
-
-          if (data?.questions && Array.isArray(data.questions)) {
-            allQuestions = [...allQuestions, ...data.questions];
-          } else if (data?.error) {
-            console.warn(`AI message in chunk ${i + 1}:`, data.error);
-          }
-        } catch (chunkErr) {
-          console.error(`Chunk ${i + 1} crash:`, chunkErr);
-        }
-      }
-
+      const allQuestions = data?.questions || [];
       if (allQuestions.length === 0) {
         toast.error('AI không tìm thấy câu hỏi trắc nghiệm nào trong toàn bộ tài liệu.');
         setImportParsing(false);
         return;
       }
 
+      setImportBatchProgress({ current: 1, total: 1 });
+
       // 5. Final processing
       const withDuplicateCheck = checkDuplicates(allQuestions);
       setImportPreview(withDuplicateCheck);
       const dupeCount = withDuplicateCheck.filter((q: any) => q.isDuplicate).length;
-      toast.success(`Hoàn tất! Phân tích xong ${chunks.length} đoạn. Tìm thấy tổng cộng ${allQuestions.length} câu hỏi!${dupeCount > 0 ? ` (${dupeCount} câu trùng lặp)` : ''}`);
+      toast.success(`Hoàn tất! Phân tích xong tài liệu. Tìm thấy tổng cộng ${allQuestions.length} câu hỏi!${dupeCount > 0 ? ` (${dupeCount} câu trùng lặp)` : ''}`);
     } catch (err: any) {
       console.error('Import error:', err);
       toast.error('Lỗi khi phân tích file: ' + (err?.message || 'Unknown'));

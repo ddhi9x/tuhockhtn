@@ -31,104 +31,118 @@ serve(async (req) => {
       });
     }
 
+    // --- PASS 1: STRUCTURAL MAPPING ---
+    console.log(`PASS 1: Mapping structural boundaries for Import`);
+
     // Build lesson list for the AI to reference
     const lessonList = curriculum.map((ch: any) =>
       ch.lessons.map((l: any) => `${l.id} | ${ch.name} | ${l.name}`).join('\n')
     ).join('\n');
 
-    const systemPrompt = `Bạn là chuyên gia bóc tách dữ liệu bài tập KHTN cấp THCS.
+    const mappingPrompt = `Bạn là chuyên gia phân tích cấu trúc tài liệu giáo khoa KHTN.
+Nhiệm vụ: Duyệt qua toàn bộ văn bản và xác định các ranh giới (đoạn bắt đầu/kết thúc) của từng bài học.
 
-NHIỆM VỤ QUAN TRỌNG NHẤT: Trích xuất ĐẦY ĐỦ 100% các câu hỏi trắc nghiệm có trong văn bản. 
-TUYỆT ĐỐI KHÔNG ĐƯỢC TÓM TẮT. KHÔNG ĐƯỢC BỎ SÓT BẤT KỲ CÂU NÀO.
-
-Danh sách bài học lớp ${grade} để phân loại:
+DANH SÁCH BÀI HỌC CẦN TÌM:
 ${lessonList}
 
-Quy tắc bóc tách:
-1. Mỗi câu hỏi trắc nghiệm cần: question, 4 options (A/B/C/D), correct (index 0-3), explanation.
-2. Khớp với lesson_id phù hợp nhất. Nếu không rõ, chọn bài gần nhất theo chủ đề.
-3. Xác định difficulty_level: "easy", "medium", "hard".
-4. Phải giữ nguyên nội dung gốc của câu hỏi và đáp án.
+Yêu cầu output JSON định dạng:
+{
+  "map": [
+    { "lesson_id": "id", "start_snippet": "Câu văn bắt đầu bài học (khoảng 50 ký tự)", "end_snippet": "Câu văn kết thúc bài học (hoảng 50 ký tự)" }
+  ]
+}
+- Nếu một bài học không xuất hiện trong tài liệu, đừng đưa vào map.
+- Đảm bảo trật tự các bài học đúng như trong file.`;
 
-Trả về JSON array duy nhất (KHÔNG markdown code block):
+    const mappingResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: `VĂN BẢN TÀI LIỆU:\n\n${textContent.substring(0, 100000)}` }] }],
+        systemInstruction: { parts: [{ text: mappingPrompt }] },
+        generationConfig: { responseMimeType: "application/json" }
+      }),
+    });
+
+    if (!mappingResponse.ok) throw new Error("Structural mapping failed: " + await mappingResponse.text());
+    const mappingResult = await mappingResponse.json();
+    const lessonMap = JSON.parse(mappingResult.candidates?.[0]?.content?.parts?.[0]?.text || '{"map":[]}').map;
+
+    console.log(`Found ${lessonMap.length} lessons in map. Starting extraction...`);
+
+    // --- PASS 2: TARGETED EXTRACTION ---
+    let allExtractedQuestions: any[] = [];
+
+    for (const entry of lessonMap) {
+      console.log(`Extracting: ${entry.lesson_id}...`);
+
+      const startIdx = entry.start_snippet ? textContent.indexOf(entry.start_snippet) : -1;
+      const endIdx = entry.end_snippet ? textContent.indexOf(entry.end_snippet) : -1;
+
+      let segment = "";
+      if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+        segment = textContent.substring(startIdx, endIdx + entry.end_snippet.length);
+      } else if (startIdx !== -1) {
+        segment = textContent.substring(startIdx, startIdx + 25000);
+      } else {
+        continue;
+      }
+
+      const extractionPrompt = `Bạn là chuyên gia bóc tách dữ liệu bài tập KHTN cấp THCS.
+Nhiệm vụ: Trích xuất ĐẦY ĐỦ các câu hỏi trắc nghiệm có trong văn bản cho Bài học sau:
+BÀI HỌC: ${entry.lesson_id}
+
+QUY TẮC:
+1. CHỈ trích xuất nội dung thuộc về bài học này.
+2. Mỗi câu hỏi trắc nghiệm cần: question, 4 options (A/B/C/D), correct (index 0-3), explanation.
+3. Phải giữ nguyên nội dung gốc của câu hỏi và đáp án.
+
+Yêu cầu output JSON array:
 [
   {
-    "lesson_id": "...",
-    "chapter_name": "...",
-    "lesson_name": "...",
+    "lesson_id": "${entry.lesson_id}",
     "question": "...",
-    "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+    "options": ["...", "...", "...", "..."],
     "correct": 0,
     "explanation": "...",
-    "difficulty_level": "..."
+    "difficulty_level": "medium"
   }
 ]`;
 
-    const userPrompt = `DƯỚI ĐÂY LÀ VĂN BẢN CHỨA CÁC CÂU HỎI. HÃY BÓC TÁCH TẤT CẢ CÂU HỎI TRẮC NGHIỆM. 
-HÃY LÀM CẨN THẬN, LẤY ĐỦ 100% SỐ CÂU, KHÔNG TỰ Ý RÚT GỌN:
-
-${textContent.substring(0, 50000)}`;
-
-    let aiResponse;
-    if (GEMINI_API_KEY) {
-      aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          generationConfig: { temperature: 0.3, responseMimeType: "application/json" }
-        }),
-      });
-    } else if (LOVABLE_API_KEY) {
-      aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          temperature: 0.3,
-        }),
-      });
-    } else {
-      throw new Error("No API key configured (GEMINI_API_KEY or LOVABLE_API_KEY)");
-    }
-
-    if (!aiResponse.ok) {
-      const status = aiResponse.status;
-      const errorText = await aiResponse.text();
-      console.error("AI API error:", status, errorText);
-      return new Response(JSON.stringify({ error: `AI Error (${status}): ${errorText.substring(0, 200)}` }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const data = await aiResponse.json();
-    let text = "";
-    if (GEMINI_API_KEY) {
-      text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    } else {
-      text = data?.choices?.[0]?.message?.content || "";
-    }
-
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return new Response(JSON.stringify({ questions: parsed }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      try {
+        const extractionResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: `ĐOẠN VĂN BẢN TRÍCH XUẤT:\n\n${segment}` }] }],
+            systemInstruction: { parts: [{ text: extractionPrompt }] },
+            generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
+          }),
         });
+
+        if (!extractionResponse.ok) continue;
+
+        const result = await extractionResponse.json();
+        const questions = JSON.parse(result.candidates?.[0]?.content?.parts?.[0]?.text || "[]");
+
+        if (Array.isArray(questions)) {
+          const exInfo = curriculum.flatMap((ch: any) => ch.lessons.map((l: any) => ({ ...l, chapter: ch.name }))).find((l: any) => l.id === entry.lesson_id);
+          const enriched = questions.map(q => ({
+            ...q,
+            lesson_id: entry.lesson_id,
+            chapter_name: exInfo?.chapter || "Khác",
+            lesson_name: exInfo?.name || "Nạp từ file",
+            difficulty_level: q.difficulty_level || 'medium'
+          }));
+          allExtractedQuestions = [...allExtractedQuestions, ...enriched];
+        }
+      } catch (err) {
+        console.error(`Error in extraction pass for ${entry.lesson_id}:`, err);
       }
     }
 
-    return new Response(JSON.stringify({ error: "Không thể phân tích câu hỏi từ văn bản. AI trả về format không đúng." }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ questions: allExtractedQuestions }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("import-exercises error:", e);
