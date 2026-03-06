@@ -36,36 +36,41 @@ serve(async (req) => {
         const systemPrompt = `Bạn là chuyên gia phân tích giáo trình Khoa học tự nhiên (KHTN) THCS. 
 Nhiệm vụ: Phân tích đoạn văn bản này để trích xuất LÝ THUYẾT và BÀI TẬP trắc nghiệm.
 
-DANH SÁCH BÀI HỌC VÀ CHỦ ĐỀ ĐỂ PHÂN LOẠI (CỰC KỲ QUAN TRỌNG):
+DANH SÁCH BÀI HỌC VÀ CHỦ ĐỀ ĐỂ PHÂN LOẠI:
 ${lessonList}
 
-QUY TẮC PHÂN LOẠI "SÁT SAO":
-1. KHÔNG GOM BỪA: Tuyệt đối không dồn bài tập của cả chương vào 1 bài học duy nhất. 
-2. SO KHỚP TỪ KHÓA: 
-   - Nếu câu hỏi có từ "Khối lượng", "Thể tích", "Khối lượng riêng" -> Khớp vào bài Khối lượng riêng.
-   - Nếu câu hỏi có từ "Áp suất", "Lực kế", "Diện tích bị ép" -> Khớp vào bài Áp suất.
-   - Nếu câu hỏi có từ "Lực đẩy", "nhúng vào nước", "Archimedes" -> Khớp vào bài Lực đẩy Archimedes.
-   - Tương tự cho các bài khác, hãy đọc kỹ câu hỏi để chọn 'lesson_id' chính xác nhất.
-3. KHÔNG BỎ SÓT: Trích xuất TOÀN BỘ các câu hỏi có trong đoạn văn bản.
+QUY TẮC PHÂN LOẠI "THÔNG MINH" (BẢN V3):
+1. TRUY TÌM TIÊU ĐỀ: Tìm các dấu hiệu tiêu đề trong văn bản như "Bài 13:", "Dạng 1:", "III. Áp suất", "Câu hỏi ôn tập Bài 15"... để xác định mốc phân loại.
+2. NGỮ CẢNH LIÊN TỤC: Dữ liệu này được chia nhỏ từ một file lớn. Nếu câu hỏi nằm ngay sau một tiêu đề bài học, hãy gán nó cho bài học đó.
+3. PHÂN TÍCH TỪ KHÓA CHUYÊN SÂU:
+   - "Khối lượng", "Thể tích", "Cân", "Bình chia độ" -> ID Bài 13 hoặc 14.
+   - "Áp suất", "p=F/S", "Diện tích bị ép", "Lực kế" -> ID Bài 15 hoặc 16.
+   - "Archimedes", "Lực đẩy", "nhúng trong lỏng", "trọng lượng nước chiếm chỗ" -> ID Bài 17.
+4. CỨNG RẮN: Đừng gán bừa vào Bài 13 nếu nội dung rõ ràng nói về Áp suất hay Lực đẩy.
 
 Yêu cầu output JSON định dạng:
 {
   "theory_chunks": [
-    { "lesson_id": "id", "content": "Nội dung tóm tắt lý thuyết", "key_points": ["..."] }
+    { "lesson_id": "id", "reasoning": "Tại sao chọn id này?", "content": "Nội dung tóm tắt lý thuyết", "key_points": ["..."] }
   ],
   "exercises": [
-    { "lesson_id": "id", "question": "...", "options": ["A...", "B..."], "correct": 0, "explanation": "..." }
+    { "lesson_id": "id", "reasoning": "Tại sao chọn id này?", "question": "...", "options": ["A...", "B..."], "correct": 0, "explanation": "..." }
   ]
 }
+- GHI CHÚ: Trường 'reasoning' để bạn tự biện luận lý do chọn bài học (dựa trên tiêu đề hoặc từ khóa tìm được).
+- CHỈ trả về JSON nguyên khối.`;
 
-- Nếu cực kỳ không chắc chắn, hãy để 'lesson_id' trống.
-- CHỈ trả về JSON nguyên khối, không giải thích gì thêm.`;
-
-        // Split text into batches of ~12k chars for high-density question files
+        // Split text into batches with OVERLAP to maintain context
         const BATCH_SIZE = 12000;
+        const OVERLAP = 1000;
         const textBatches: string[] = [];
-        for (let i = 0; i < textContent.length; i += BATCH_SIZE) {
-            textBatches.push(textContent.substring(i, i + BATCH_SIZE));
+
+        let currentPos = 0;
+        while (currentPos < textContent.length) {
+            const end = Math.min(currentPos + BATCH_SIZE, textContent.length);
+            textBatches.push(textContent.substring(currentPos, end));
+            if (end === textContent.length) break;
+            currentPos += (BATCH_SIZE - OVERLAP); // Move forward but keep some overlap
         }
 
         console.log(`Processing ${textBatches.length} batches for source ${sourceId}`);
@@ -82,10 +87,10 @@ Yêu cầu output JSON định dạng:
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: `PHẦN TÀI LIỆU ${b + 1}/${textBatches.length}:\n\n${currentBatch}` }] }],
+                        contents: [{ role: 'user', parts: [{ text: `PHẦN TÀI LIỆU (${b + 1}/${textBatches.length}):\n\n${currentBatch}` }] }],
                         systemInstruction: { parts: [{ text: systemPrompt }] },
                         generationConfig: {
-                            temperature: 0.1,
+                            temperature: 0.0, // Force most deterministic output
                             responseMimeType: "application/json"
                         }
                     }),
