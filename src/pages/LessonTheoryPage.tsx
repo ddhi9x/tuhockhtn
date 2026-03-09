@@ -401,6 +401,7 @@ const LessonTheoryPage = () => {
   const lessonId = searchParams.get('lessonId') || '';
   const lessonName = searchParams.get('lessonName') || '';
   const chapterName = searchParams.get('chapterName') || '';
+  const chapterId = searchParams.get('chapterId') || '';
   const gradeNum = parseInt(grade || '6');
 
   const [activeTab, setActiveTab] = useState<'theory' | 'simulation' | 'self_study' | 'video'>('theory');
@@ -759,7 +760,7 @@ const LessonTheoryPage = () => {
       {/* Header */}
       <div className="bg-card border-b border-border px-6 py-4">
         <div className="flex items-center gap-3 mb-2">
-          <button onClick={() => navigate(`/exercises/${gradeNum}`)} className="text-muted-foreground hover:text-foreground">
+          <button onClick={() => navigate(`/exercises/${gradeNum}`, { state: { chapterId } })} className="text-muted-foreground hover:text-foreground">
             <MaterialIcon name="arrow_back" size={20} />
           </button>
           <div>

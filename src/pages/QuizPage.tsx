@@ -33,7 +33,7 @@ const QuizPage = () => {
   if (topicIdx === null) {
     return (
       <div className="p-6 max-w-3xl mx-auto">
-        <button onClick={() => navigate('/exercises')} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
+        <button onClick={() => navigate(`/exercises/${grade}`)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
           <MaterialIcon name="arrow_back" size={18} /> Quay lại
         </button>
         <h1 className="text-2xl font-bold mb-6">Lớp {gradeNum} - Chọn chủ đề</h1>
@@ -160,11 +160,10 @@ const QuizPage = () => {
                   disabled={selectedAnswer !== null}
                   className={`w-full text-left border-2 rounded-xl p-4 flex items-start gap-3 transition-all ${style}`}
                 >
-                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
-                    selectedAnswer !== null && i === question.correct ? 'bg-success text-success-foreground' :
-                    selectedAnswer === i && i !== question.correct ? 'bg-destructive text-destructive-foreground' :
-                    'bg-muted text-muted-foreground'
-                  }`}>
+                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${selectedAnswer !== null && i === question.correct ? 'bg-success text-success-foreground' :
+                      selectedAnswer === i && i !== question.correct ? 'bg-destructive text-destructive-foreground' :
+                        'bg-muted text-muted-foreground'
+                    }`}>
                     {letters[i]}
                   </span>
                   <span className="text-sm font-medium pt-1">{opt}</span>

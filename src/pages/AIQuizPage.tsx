@@ -19,6 +19,7 @@ const AIQuizPage = () => {
   const lessonId = (location.state as any)?.lessonId || '';
   const lessonName = (location.state as any)?.lessonName || 'Bài học';
   const chapterName = (location.state as any)?.chapterName || '';
+  const chapterId = (location.state as any)?.chapterId || '';
 
   const [phase, setPhase] = useState<'setup' | 'loading' | 'quiz' | 'result'>('setup');
   const [numQuestions, setNumQuestions] = useState(10);
@@ -205,7 +206,7 @@ CHỈ trả về JSON array, không có text khác.` }]
     return (
       <div className="p-6 max-w-lg mx-auto flex items-center justify-center min-h-[calc(100vh-64px)]">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full">
-          <button onClick={() => navigate(`/exercises/${grade}`)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
+          <button onClick={() => navigate(`/exercises/${grade}`, { state: { chapterId } })} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
             <MaterialIcon name="arrow_back" size={18} />
             Quay lại
           </button>
@@ -409,7 +410,7 @@ CHỈ trả về JSON array, không có text khác.` }]
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-4">
-        <button onClick={() => navigate(`/exercises/${grade}`)} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <button onClick={() => navigate(`/exercises/${grade}`, { state: { chapterId } })} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <MaterialIcon name="arrow_back" size={18} />
           Quay lại
         </button>

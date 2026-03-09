@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { curriculumData, subjectColors } from '@/data/curriculumData';
 import { useAppContext } from '@/contexts/AppContext';
@@ -11,7 +11,10 @@ const GradeExercisePage = () => {
   const { state } = useAppContext();
   const gradeNum = parseInt(grade || '6');
   const gradeData = curriculumData.find(g => g.grade === gradeNum);
-  const [selectedChapter, setSelectedChapter] = useState<string | null>(null);
+  const location = useLocation();
+  const [selectedChapter, setSelectedChapter] = useState<string | null>(() => {
+    return (location.state as any)?.chapterId || null;
+  });
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
 
   if (!gradeData) {
@@ -26,11 +29,11 @@ const GradeExercisePage = () => {
   const chapter = gradeData.chapters.find(c => c.id === selectedChapter);
 
   const handleStartQuiz = (lessonId: string, lessonName: string) => {
-    navigate(`/exercises/${gradeNum}/quiz`, { state: { lessonId, lessonName, chapterName: chapter?.name } });
+    navigate(`/exercises/${gradeNum}/quiz`, { state: { lessonId, lessonName, chapterName: chapter?.name, chapterId: selectedChapter } });
   };
 
   const handleViewTheory = (lessonId: string, lessonName: string, defaultTab?: string) => {
-    navigate(`/exercises/${gradeNum}/theory?lessonId=${encodeURIComponent(lessonId)}&lessonName=${encodeURIComponent(lessonName)}&chapterName=${encodeURIComponent(chapter?.name || '')}${defaultTab ? `&tab=${defaultTab}` : ''}`);
+    navigate(`/exercises/${gradeNum}/theory?lessonId=${encodeURIComponent(lessonId)}&lessonName=${encodeURIComponent(lessonName)}&chapterName=${encodeURIComponent(chapter?.name || '')}&chapterId=${encodeURIComponent(selectedChapter || '')}${defaultTab ? `&tab=${defaultTab}` : ''}`);
   };
 
   return (
