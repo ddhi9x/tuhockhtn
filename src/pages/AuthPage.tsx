@@ -89,6 +89,18 @@ const AuthPage = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             {mode === 'student' ? (
               <>
+                <div className="bg-info/10 border border-info/20 rounded-xl p-3 flex flex-col items-center justify-center text-sm mb-4">
+                  <div className="font-bold text-slate-700 flex items-center gap-2 mb-1.5">
+                    <MaterialIcon name="info" size={18} className="text-info" />
+                    Tài khoản trải nghiệm Demo
+                  </div>
+                  <div className="text-slate-600 flex items-center gap-2">
+                    <span>Mã HS: <strong className="font-mono bg-white px-1.5 py-0.5 rounded shadow-sm text-primary">hsdemo</strong></span>
+                    <span className="text-slate-300">|</span>
+                    <span>Mật khẩu: <strong className="font-mono bg-white px-1.5 py-0.5 rounded shadow-sm text-primary">123456</strong></span>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700 ml-1">Mã học sinh (MHS)</label>
                   <div className="relative group">
